@@ -164,3 +164,86 @@ export async function insertResultados(resultados: Array<{
   const { error } = await supabase.from('resultados').insert(resultados)
   if (error) throw error
 }
+
+// ── Historial / ediciones ────────────────────────────────────────────────────
+
+export async function getPartidasLista() {
+  const { data, error } = await supabase
+    .from('partidas')
+    .select('id, numero_partida, fecha, orden_turno, eventos(id, numero_evento, ubicacion), resultados(id, rank_en_partida, jugadores(nombre))')
+    .order('numero_partida', { ascending: false })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function getResultadosDePartida(partidaId: number) {
+  const { data, error } = await supabase
+    .from('resultados')
+    .select('id, jugador_id, puntos_tablero, puntos_pv, ejercito_mas_grande, camino_mas_largo, puntos_totales, rank_en_partida, penalidad, jugadores(id, nombre)')
+    .eq('partida_id', partidaId)
+    .order('rank_en_partida', { ascending: true })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function actualizarResultadosConAudit(
+  partidaId: number,
+  resultadosNuevos: Array<{
+    id: number; puntos_tablero: number; puntos_pv: number
+    ejercito_mas_grande: boolean; camino_mas_largo: boolean
+    puntos_totales: number; rank_en_partida: number; penalidad: number
+    jugador_nombre: string
+  }>,
+  snapshotAnterior: any[]
+) {
+  for (const r of resultadosNuevos) {
+    const { error } = await supabase
+      .from('resultados')
+      .update({
+        puntos_tablero: r.puntos_tablero,
+        puntos_pv: r.puntos_pv,
+        ejercito_mas_grande: r.ejercito_mas_grande,
+        camino_mas_largo: r.camino_mas_largo,
+        puntos_totales: r.puntos_totales,
+        rank_en_partida: r.rank_en_partida,
+        penalidad: r.penalidad,
+      })
+      .eq('id', r.id)
+    if (error) throw error
+  }
+  const { error: auditError } = await supabase
+    .from('resultados_historial')
+    .insert({ partida_id: partidaId, snapshot_anterior: snapshotAnterior, snapshot_nuevo: resultadosNuevos })
+  if (auditError) console.error('Audit log failed (table may not exist):', auditError.message)
+}
+
+export async function getAuditDePartida(partidaId: number) {
+  const { data, error } = await supabase
+    .from('resultados_historial')
+    .select('*')
+    .eq('partida_id', partidaId)
+    .order('editado_en', { ascending: false })
+  if (error) return []
+  return data ?? []
+}
+
+export async function revertirEdicion(snapshotAnterior: any[], partidaId: number, snapshotActual: any[]) {
+  for (const r of snapshotAnterior) {
+    const { error } = await supabase
+      .from('resultados')
+      .update({
+        puntos_tablero: r.puntos_tablero,
+        puntos_pv: r.puntos_pv,
+        ejercito_mas_grande: r.ejercito_mas_grande,
+        camino_mas_largo: r.camino_mas_largo,
+        puntos_totales: r.puntos_totales,
+        rank_en_partida: r.rank_en_partida,
+        penalidad: r.penalidad,
+      })
+      .eq('id', r.id)
+    if (error) throw error
+  }
+  await supabase
+    .from('resultados_historial')
+    .insert({ partida_id: partidaId, snapshot_anterior: snapshotActual, snapshot_nuevo: snapshotAnterior })
+}

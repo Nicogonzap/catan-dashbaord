@@ -9,6 +9,7 @@ const links = [
   { href: '/individualidades', label: 'Individualidades' },
   { href: '/stats',            label: 'Stats' },
   { href: '/admin/cargar',     label: 'Admin' },
+  { href: '/admin/historial',  label: 'Historial' },
 ]
 
 export default function Navbar() {
