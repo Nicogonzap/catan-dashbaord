@@ -7,6 +7,7 @@ const links = [
   { href: '/historico',        label: 'Ranking Histórico' },
   { href: '/eventos',          label: 'Eventos' },
   { href: '/individualidades', label: 'Individualidades' },
+  { href: '/torneos',          label: 'Torneos' },
   { href: '/stats',            label: 'Stats' },
   { href: '/admin/cargar',     label: 'Admin' },
   { href: '/admin/historial',  label: 'Historial' },
