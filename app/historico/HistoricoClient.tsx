@@ -143,7 +143,7 @@ export default function HistoricoClient({ resultados, years }: Props) {
       </div>
 
       <SectionTitle>Ranking — {label}</SectionTitle>
-      <div className="card p-0 overflow-hidden mb-2">
+      <div className="card p-0 overflow-x-auto mb-2">
         <RankingTable stats={stats} totalPartidas={totalPartidas} />
       </div>
 

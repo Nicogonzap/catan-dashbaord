@@ -202,7 +202,7 @@ export default function EventosClient({ eventos, resultados }: Props) {
       {detalleVictorias.length > 0 && (
         <>
           <SectionTitle>Detalle de Victorias</SectionTitle>
-          <div className="card p-0 overflow-hidden">
+          <div className="card p-0 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ background: '#D6EAF8' }}>
@@ -300,7 +300,7 @@ export default function EventosClient({ eventos, resultados }: Props) {
         </div>
       </div>
 
-      <div className="card p-0 overflow-hidden">
+      <div className="card p-0 overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr style={{ background: '#D6EAF8' }}>

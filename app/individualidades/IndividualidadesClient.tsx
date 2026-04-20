@@ -252,7 +252,7 @@ export default function IndividualidadesClient({ stats, resultados }: Props) {
 
           {/* 1. Stats por año */}
           <SectionTitle>Rendimiento por Año</SectionTitle>
-          <div className="card p-0 overflow-hidden mb-6">
+          <div className="card p-0 overflow-x-auto mb-6">
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ background: '#D6EAF8' }}>
@@ -310,7 +310,7 @@ export default function IndividualidadesClient({ stats, resultados }: Props) {
           <SectionTitle>Efectividad en el Uso de Recursos</SectionTitle>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             {(['ejercito', 'camino'] as const).map(recurso => (
-              <div key={recurso} className="card p-0 overflow-hidden">
+              <div key={recurso} className="card p-0 overflow-x-auto">
                 <div className="px-4 py-2 font-bold text-sm" style={{ background: recurso === 'ejercito' ? '#C0392B' : '#27AE60', color: '#fff' }}>
                   {recurso === 'ejercito' ? '⚔️ Ejército Más Grande' : '🛤️ Camino Más Largo'}
                 </div>
@@ -348,39 +348,50 @@ export default function IndividualidadesClient({ stats, resultados }: Props) {
 
           {/* 3. Mano a mano */}
           <SectionTitle>Mano a Mano</SectionTitle>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-            {manoAMano.map(m => {
-              const pct = m.total > 0 ? Math.round(m.ganadas / m.total * 100) : 0
+          <div className="card p-0 overflow-hidden mb-6">
+            {manoAMano.map((m, i) => {
+              const pctSel  = m.total > 0 ? Math.round(m.ganadas    / m.total * 100) : 0
+              const pctOtro = m.total > 0 ? Math.round(m.ganadoOtro / m.total * 100) : 0
+              const pctOtros = Math.max(0, 100 - pctSel - pctOtro)
               return (
-                <div key={m.jugador} className="card p-4">
-                  <div className="flex items-center gap-2 mb-2">
+                <div key={m.jugador}
+                  className="px-4 py-3"
+                  style={{ background: i % 2 === 0 ? '#EBF5FB' : '#D6EAF8', borderBottom: '1px solid #AED6F1' }}
+                >
+                  <div className="flex items-center gap-2 mb-1.5">
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: playerColor(m.jugador) }} />
-                    <span className="font-bold text-sm" style={{ color: '#1A2F45' }}>{m.jugador}</span>
+                    <span className="font-semibold text-sm" style={{ color: '#1A2F45' }}>{m.jugador}</span>
+                    <span className="text-xs ml-auto" style={{ color: '#5D7A8A' }}>
+                      {m.total} partidas juntos
+                    </span>
                   </div>
-                  <p className="text-xs mb-3" style={{ color: '#5D7A8A' }}>{m.total} partidas juntos</p>
-                  <div className="flex items-center justify-between text-sm mb-2">
-                    <div className="text-center">
-                      <div className="font-bold text-lg" style={{ color }}>{m.ganadas}</div>
-                      <div className="text-xs" style={{ color: '#5D7A8A' }}>{selectedPlayer}</div>
-                    </div>
-                    <div className="text-xs font-bold" style={{ color: '#AED6F1' }}>vs</div>
-                    <div className="text-center">
-                      <div className="font-bold text-lg" style={{ color: playerColor(m.jugador) }}>{m.ganadoOtro}</div>
-                      <div className="text-xs" style={{ color: '#5D7A8A' }}>{m.jugador}</div>
-                    </div>
-                  </div>
-                  {m.total > 0 && (
-                    <div>
-                      <div className="flex rounded-full overflow-hidden h-2 w-full">
-                        <div style={{ width: `${pct}%`, background: color }} />
-                        <div style={{ flex: 1, background: playerColor(m.jugador) }} />
+                  {m.total > 0 ? (
+                    <>
+                      <div className="flex rounded-sm overflow-hidden h-4 w-full mb-1">
+                        {pctSel > 0 && <div style={{ width: `${pctSel}%`, background: color }} />}
+                        {pctOtro > 0 && <div style={{ width: `${pctOtro}%`, background: playerColor(m.jugador) }} />}
+                        {pctOtros > 0 && <div style={{ flex: 1, background: '#AED6F1' }} />}
                       </div>
-                      <p className="text-xs mt-1 text-right font-semibold" style={{ color: pct > 50 ? '#1E8449' : pct < 50 ? '#C0392B' : '#5D7A8A' }}>
-                        {pct}% de victorias
-                      </p>
-                    </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
+                        <span>
+                          <span className="font-bold" style={{ color }}>{pctSel}%</span>
+                          <span style={{ color: '#5D7A8A' }}> {selectedPlayer} ({m.ganadas} victorias)</span>
+                        </span>
+                        <span>
+                          <span className="font-bold" style={{ color: playerColor(m.jugador) }}>{pctOtro}%</span>
+                          <span style={{ color: '#5D7A8A' }}> {m.jugador} ({m.ganadoOtro} victorias)</span>
+                        </span>
+                        {pctOtros > 0 && (
+                          <span>
+                            <span className="font-bold" style={{ color: '#5D7A8A' }}>{pctOtros}%</span>
+                            <span style={{ color: '#5D7A8A' }}> otros ({m.total - m.ganadas - m.ganadoOtro} victorias)</span>
+                          </span>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-xs" style={{ color: '#AED6F1' }}>Sin partidas juntos</p>
                   )}
-                  {m.total === 0 && <p className="text-xs" style={{ color: '#AED6F1' }}>Sin partidas juntos</p>}
                 </div>
               )
             })}
@@ -395,7 +406,7 @@ export default function IndividualidadesClient({ stats, resultados }: Props) {
               </p>
             </div>
           ) : (
-            <div className="card p-0 overflow-hidden mb-6">
+            <div className="card p-0 overflow-x-auto mb-6">
               <table className="w-full text-sm">
                 <thead>
                   <tr style={{ background: '#D6EAF8' }}>
@@ -453,7 +464,7 @@ export default function IndividualidadesClient({ stats, resultados }: Props) {
 
       {/* Tabla de Uso de Recursos (todos los jugadores) */}
       <SectionTitle>Uso de Recursos — Todos los Jugadores</SectionTitle>
-      <div className="card p-0 overflow-hidden">
+      <div className="card p-0 overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr style={{ background: '#D6EAF8' }}>

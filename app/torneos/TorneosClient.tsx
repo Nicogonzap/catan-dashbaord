@@ -27,7 +27,7 @@ function computeTorneo(resultados: any[], ano: number) {
   const partidas = new Set(res.map((r: any) => r.partida_id))
   const jugadores = new Set(res.map((r: any) => r.jugador_id))
 
-  const victoriasPorJugador: Record<string, { nombre: string; wins: number }> = {}
+  const victoriasPorJugador: Record<string, { nombre: string; wins: number; partidas: number }> = {}
   const grandSlams = new Set<number>()
   let flawless = 0
   let totalPuntos = 0
@@ -44,7 +44,8 @@ function computeTorneo(resultados: any[], ano: number) {
 
     const nombre = r.jugadores?.nombre
     if (nombre) {
-      if (!victoriasPorJugador[r.jugador_id]) victoriasPorJugador[r.jugador_id] = { nombre, wins: 0 }
+      if (!victoriasPorJugador[r.jugador_id]) victoriasPorJugador[r.jugador_id] = { nombre, wins: 0, partidas: 0 }
+      victoriasPorJugador[r.jugador_id].partidas++
       if (r.rank_en_partida === 1) {
         victoriasPorJugador[r.jugador_id].wins++
         if (r.puntos_totales === 11) flawless++
@@ -57,8 +58,9 @@ function computeTorneo(resultados: any[], ano: number) {
     if (r.camino_mas_largo) conCamino.add(r.partida_id)
   }
 
+  // Tiebreaker: fewer games played = higher rank (more efficient winner)
   const podio = Object.values(victoriasPorJugador)
-    .sort((a, b) => b.wins - a.wins)
+    .sort((a, b) => b.wins - a.wins || a.partidas - b.partidas)
     .slice(0, 3)
 
   const nPartidas = partidas.size
