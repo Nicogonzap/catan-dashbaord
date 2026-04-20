@@ -7,20 +7,45 @@ export async function getAnosDisponibles(): Promise<number[]> {
   return years
 }
 
-// Fetch all resultados and filter client-side — server-side filters on joined
-// columns (partidas.fecha) are unreliable in PostgREST for nested relations.
+// Fetch all resultados with pagination (Supabase default limit = 1000 rows).
+// When year is specified, fetches only that year's partida IDs first → efficient.
 export async function getResultadosConJugadores(year?: number | null) {
-  const { data, error } = await supabase
-    .from('resultados')
-    .select('*, jugadores(*), partidas(*, eventos(*))')
-    .order('partida_id', { ascending: true })
-  if (error) throw error
+  if (year) {
+    const { data: partidas } = await supabase
+      .from('partidas')
+      .select('id')
+      .gte('fecha', `${year}-01-01`)
+      .lte('fecha', `${year}-12-31`)
 
-  if (!year) return data ?? []
-  return (data ?? []).filter((r: any) => {
-    const fecha = r.partidas?.fecha
-    return fecha ? new Date(fecha).getFullYear() === year : false
-  })
+    const ids = (partidas ?? []).map((p: any) => p.id)
+    if (ids.length === 0) return []
+
+    const { data, error } = await supabase
+      .from('resultados')
+      .select('*, jugadores(*), partidas(*, eventos(*))')
+      .in('partida_id', ids)
+      .order('partida_id', { ascending: true })
+    if (error) throw error
+    return data ?? []
+  }
+
+  // No year → paginate to bypass the 1000-row cap
+  const allData: any[] = []
+  const PAGE = 1000
+  let from = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('resultados')
+      .select('*, jugadores(*), partidas(*, eventos(*))')
+      .order('partida_id', { ascending: true })
+      .range(from, from + PAGE - 1)
+    if (error) throw error
+    if (!data || data.length === 0) break
+    allData.push(...data)
+    if (data.length < PAGE) break
+    from += PAGE
+  }
+  return allData
 }
 
 export async function getEstadisticasJugadores(year?: number | null) {
@@ -34,7 +59,6 @@ export async function getEstadisticasJugadores(year?: number | null) {
   }
 
   const resultados = await getResultadosConJugadores(year)
-
   const map: Record<string, any> = {}
   for (const r of resultados) {
     const j = (r as any).jugadores
@@ -42,9 +66,9 @@ export async function getEstadisticasJugadores(year?: number | null) {
     if (!map[j.id]) {
       map[j.id] = {
         id: j.id, nombre: j.nombre, es_miembro_oficial: j.es_miembro_oficial,
-        partidas_jugadas: 0, victorias: 0, pct_victorias: 0,
-        promedio_puntos: 0, total_ejercitos: 0, total_caminos: 0,
-        total_pv: 0, victorias_flawless: 0, diez_tablero: 0, _sum_pts: 0,
+        partidas_jugadas: 0, victorias: 0, _sum_pts: 0,
+        total_ejercitos: 0, total_caminos: 0, total_pv: 0,
+        victorias_flawless: 0, diez_tablero: 0,
       }
     }
     const s = map[j.id]

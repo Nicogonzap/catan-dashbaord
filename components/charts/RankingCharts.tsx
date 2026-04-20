@@ -4,6 +4,7 @@ import PlayerBar from './PlayerBar'
 import StackedBarByEvent from './StackedBarByEvent'
 import LineChart from './LineChart'
 import SectionTitle from '../metrics/SectionTitle'
+import { MIEMBROS_OFICIALES } from '@/lib/colors'
 
 interface Props {
   stats: any[]
@@ -13,14 +14,24 @@ interface Props {
   totalPartidas: number
 }
 
-type Filtro = 'todos' | 'asistencia50'
+type Filtro = 'todos' | 'habituales' | 'asistencia50'
+
+const FILTROS: { key: Filtro; label: string }[] = [
+  { key: 'todos',        label: 'Todos' },
+  { key: 'habituales',   label: 'Habituales' },
+  { key: 'asistencia50', label: '+50% asistencia' },
+]
 
 export default function RankingCharts({ stats, acumData, eventosData, players, totalPartidas }: Props) {
   const [filtro, setFiltro] = useState<Filtro>('todos')
 
-  const statsFiltradas = filtro === 'asistencia50'
-    ? stats.filter(s => totalPartidas > 0 && (Number(s.partidas_jugadas) / totalPartidas * 100) >= 50)
-    : stats
+  const statsFiltradas = (() => {
+    if (filtro === 'habituales')
+      return stats.filter(s => MIEMBROS_OFICIALES.includes(s.nombre))
+    if (filtro === 'asistencia50')
+      return stats.filter(s => totalPartidas > 0 && (Number(s.partidas_jugadas) / totalPartidas * 100) >= 50)
+    return stats
+  })()
 
   const promData = [...statsFiltradas]
     .sort((a, b) => Number(b.promedio_puntos) - Number(a.promedio_puntos))
@@ -31,16 +42,16 @@ export default function RankingCharts({ stats, acumData, eventosData, players, t
     .map(s => ({ nombre: s.nombre, value: Number(s.pct_victorias) }))
 
   const FilterToggle = () => (
-    <div className="flex gap-1 mb-3">
-      {(['todos', 'asistencia50'] as Filtro[]).map(f => (
-        <button key={f} onClick={() => setFiltro(f)}
+    <div className="flex gap-1 mb-3 flex-wrap">
+      {FILTROS.map(f => (
+        <button key={f.key} onClick={() => setFiltro(f.key)}
           className="px-3 py-1 rounded-full text-xs font-semibold border transition-all"
           style={{
-            background: filtro === f ? '#154E80' : '#EBF5FB',
-            color: filtro === f ? '#fff' : '#5D7A8A',
+            background: filtro === f.key ? '#154E80' : '#EBF5FB',
+            color: filtro === f.key ? '#fff' : '#5D7A8A',
             borderColor: '#AED6F1',
           }}>
-          {f === 'todos' ? 'Todos' : '+50% asistencia'}
+          {f.label}
         </button>
       ))}
     </div>
