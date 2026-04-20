@@ -10,15 +10,37 @@ export const PLAYER_COLORS: Record<string, string> = {
   Rodri:  '#7F8C8D',
   Abegol: '#95A5A6',
   Jota:   '#85929E',
-  Beto:   '#7F8C8D',
+  Beto:   '#5D6D7E',
   Chino:  '#AAB7B8',
   Cami:   '#E91E8C',
   Costa:  '#00BCD4',
   default:'#95A5A6',
 }
 
+export const PLAYER_ORDER = [
+  'Gallo', 'Ivo', 'Gaspa', 'Hugo', 'Moch', 'Max',
+  'Sofi', 'Gasta', 'Rodri', 'Abegol', 'Jota', 'Beto', 'Chino', 'Cami', 'Costa',
+]
+
 export function playerColor(nombre: string): string {
   return PLAYER_COLORS[nombre] ?? PLAYER_COLORS.default
+}
+
+export function lightenColor(hex: string, alpha = 0.15): string {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return `rgba(${r},${g},${b},${alpha})`
+}
+
+export const MESES_ES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+
+export function formatDate(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00')
+  const day = String(d.getDate()).padStart(2, '0')
+  const month = MESES_ES[d.getMonth()]
+  const year = String(d.getFullYear()).slice(-2)
+  return `${day}-${month}-${year}`
 }
 
 export const OCEAN = {
