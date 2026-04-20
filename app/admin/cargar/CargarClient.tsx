@@ -27,9 +27,26 @@ function calcTotal(r: ResultadoForm) {
   return r.puntos_tablero + r.puntos_pv + (r.ejercito_mas_grande ? 2 : 0) + (r.camino_mas_largo ? 2 : 0)
 }
 
-function calcRanks(resultados: ResultadoForm[]): number[] {
+function hasTiePrimero(resultados: ResultadoForm[]): boolean {
   const totals = resultados.map(calcTotal)
-  return totals.map(t => totals.filter(x => x > t).length + 1)
+  if (totals.length === 0) return false
+  const max = Math.max(...totals)
+  return totals.filter(t => t === max).length > 1
+}
+
+function calcRanks(resultados: ResultadoForm[], ganadorManualId: string | null): number[] {
+  const totals = resultados.map(calcTotal)
+  if (totals.length === 0) return []
+  const max = Math.max(...totals)
+  const tie = totals.filter(t => t === max).length > 1
+
+  return resultados.map((r, i) => {
+    if (tie && ganadorManualId) {
+      if (r.jugador_id === ganadorManualId) return 1          // ganador elegido
+      if (totals[i] === max) return 2                         // empatado pero no ganador
+    }
+    return totals.filter(t => t > totals[i]).length + 1       // fórmula estándar
+  })
 }
 
 export default function CargarClient({ jugadores: jugadoresIniciales, sugeridoEvento, ultimaPartida, ubicaciones }: Props) {
@@ -45,6 +62,7 @@ export default function CargarClient({ jugadores: jugadoresIniciales, sugeridoEv
   const [nuevaUbicacion, setNuevaUbicacion] = useState('')
   const [useNuevaUbic, setUseNuevaUbic] = useState(false)
   const [ordenTurnos, setOrdenTurnos] = useState<string[][]>([[]])
+  const [ganadoresManual, setGanadoresManual] = useState<(string | null)[]>([null])
   const [partidas, setPartidas] = useState<ResultadoForm[][]>([[]])
   const [jugadoresSeleccionados, setJugadoresSeleccionados] = useState<string[][]>([[]])
   const [loading, setLoading] = useState(false)
@@ -89,6 +107,11 @@ export default function CargarClient({ jugadores: jugadoresIniciales, sugeridoEv
     setPartidas(prev => [...prev, []])
     setJugadoresSeleccionados(prev => [...prev, []])
     setOrdenTurnos(prev => [...prev, []])
+    setGanadoresManual(prev => [...prev, null])
+  }
+
+  function setGanadorManual(pIdx: number, jugadorId: string) {
+    setGanadoresManual(prev => prev.map((g, i) => i === pIdx ? (g === jugadorId ? null : jugadorId) : g))
   }
 
   function setOrdenTurnoPartida(pIdx: number, nombre: string) {
@@ -115,6 +138,11 @@ export default function CargarClient({ jugadores: jugadoresIniciales, sugeridoEv
       if (i !== pIdx) return ot
       const nombres = seleccionados.map(id => jugadoresList.find(j => j.id === id)?.nombre ?? '')
       return ot.filter(n => nombres.includes(n))
+    }))
+    // Reset manual winner if they were deselected
+    setGanadoresManual(prev => prev.map((g, i) => {
+      if (i !== pIdx || !g) return g
+      return seleccionados.includes(g) ? g : null
     }))
   }
 
@@ -150,12 +178,11 @@ export default function CargarClient({ jugadores: jugadoresIniciales, sugeridoEv
       let nextPartida = ultimaPartida + 1
       for (const [pIdx, resultados] of partidas.entries()) {
         if (resultados.length < 4) throw new Error(`Partida ${pIdx + 1}: mínimo 4 jugadores`)
+        const ganadorManual = ganadoresManual[pIdx] ?? null
         const totals = resultados.map(calcTotal)
-        const ranks = calcRanks(resultados)
-
-        const sortedTotals = [...totals].sort((a, b) => b - a)
-        if (sortedTotals[0] === sortedTotals[1])
-          throw new Error(`Partida ${pIdx + 1}: hay empate en el primer lugar. Resolvé manualmente el rank.`)
+        if (hasTiePrimero(resultados) && !ganadorManual)
+          throw new Error(`Partida ${pIdx + 1}: hay empate en el primer lugar — seleccioná el ganador.`)
+        const ranks = calcRanks(resultados, ganadorManual)
 
         const partida = await insertPartida({
           numero_partida: nextPartida++,
@@ -183,6 +210,7 @@ export default function CargarClient({ jugadores: jugadoresIniciales, sugeridoEv
       setPartidas([[]])
       setJugadoresSeleccionados([[]])
       setOrdenTurnos([[]])
+      setGanadoresManual([null])
     } catch (err: any) {
       setError(err.message ?? 'Error desconocido')
     }
@@ -354,6 +382,37 @@ export default function CargarClient({ jugadores: jugadoresIniciales, sugeridoEv
                 </div>
               )}
 
+              {/* Selector de ganador cuando hay empate en 1er lugar */}
+              {resultados.length > 0 && hasTiePrimero(resultados) && (() => {
+                const totals = resultados.map(calcTotal)
+                const max = Math.max(...totals)
+                const empatados = resultados.filter((_, i) => totals[i] === max)
+                return (
+                  <div className="mb-4 p-3 rounded-lg border" style={{ borderColor: '#D4AC0D', background: '#FEF9E7' }}>
+                    <p className="text-xs font-semibold mb-2" style={{ color: '#5D3A00' }}>
+                      ⚡ Empate en {max} puntos — seleccioná el ganador:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {empatados.map(r => (
+                        <button
+                          key={r.jugador_id}
+                          type="button"
+                          onClick={() => setGanadorManual(pIdx, r.jugador_id)}
+                          className="px-3 py-1.5 rounded-full text-sm font-semibold border-2 transition-all"
+                          style={{
+                            background: ganadoresManual[pIdx] === r.jugador_id ? '#D4AC0D' : '#EBF5FB',
+                            color: ganadoresManual[pIdx] === r.jugador_id ? '#5D3A00' : '#1A2F45',
+                            borderColor: '#D4AC0D',
+                          }}
+                        >
+                          {ganadoresManual[pIdx] === r.jugador_id ? '🏆 ' : ''}{r.nombre}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+
               {/* Tabla de puntuación */}
               {resultados.length > 0 && (
                 <div className="overflow-x-auto">
@@ -367,7 +426,7 @@ export default function CargarClient({ jugadores: jugadoresIniciales, sugeridoEv
                     </thead>
                     <tbody>
                       {(() => {
-                        const ranks = calcRanks(resultados)
+                        const ranks = calcRanks(resultados, ganadoresManual[pIdx] ?? null)
                         return resultados.map((r, rIdx) => {
                           const turnoPos = ordenActual.indexOf(r.nombre)
                           return (
