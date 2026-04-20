@@ -6,7 +6,9 @@ function YearSelectorInner({ years }: { years: number[] }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const currentYear = searchParams.get('year') ?? 'all'
+
+  // Default to current year when no param is present
+  const currentYear = searchParams.get('year') ?? String(new Date().getFullYear())
 
   function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const val = e.target.value

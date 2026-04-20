@@ -4,15 +4,14 @@ import { usePathname } from 'next/navigation'
 import YearSelector from './YearSelector'
 
 const links = [
-  { href: '/', label: 'Dashboard' },
-  { href: '/eventos', label: 'Eventos' },
-  { href: '/individualidades', label: 'Individualidades' },
-  { href: '/admin/cargar', label: 'Admin' },
+  { href: '/',                label: 'Dashboard' },
+  { href: '/eventos',         label: 'Eventos' },
+  { href: '/individualidades',label: 'Individualidades' },
+  { href: '/stats',           label: 'Stats' },
+  { href: '/admin/cargar',    label: 'Admin' },
 ]
 
-interface Props {
-  years: number[]
-}
+interface Props { years: number[] }
 
 export default function Navbar({ years }: Props) {
   const pathname = usePathname()

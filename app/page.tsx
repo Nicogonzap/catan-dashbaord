@@ -8,8 +8,14 @@ import SectionTitle from '@/components/metrics/SectionTitle'
 import RankingTable from '@/components/tables/RankingTable'
 import DashboardCharts from '@/components/charts/DashboardCharts'
 
+function resolveYear(param?: string): number | null {
+  if (param === 'all') return null
+  if (param) return Number(param)
+  return new Date().getFullYear()
+}
+
 export default async function Home({ searchParams }: { searchParams: { year?: string } }) {
-  const year = searchParams.year ? Number(searchParams.year) : null
+  const year = resolveYear(searchParams.year)
 
   const [stats, eventos, partidas, resultados] = await Promise.all([
     getEstadisticasJugadores(year),
@@ -61,7 +67,7 @@ export default async function Home({ searchParams }: { searchParams: { year?: st
 
       <SectionTitle>Ranking General</SectionTitle>
       <div className="card p-0 overflow-hidden">
-        <RankingTable stats={stats} />
+        <RankingTable stats={stats} totalPartidas={totalPartidas} />
       </div>
 
       <DashboardCharts
@@ -70,6 +76,7 @@ export default async function Home({ searchParams }: { searchParams: { year?: st
         sedeData={sedeData}
         eventosData={eventosData}
         players={MIEMBROS_OFICIALES}
+        totalPartidas={totalPartidas}
       />
     </div>
   )
