@@ -12,8 +12,16 @@ function KpiBox({ label, value, sub }: { label: string; value: string | number; 
   return (
     <div className="rounded-lg p-3" style={{ background: '#EBF5FB' }}>
       <div className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#5D7A8A' }}>{label}</div>
-      <div className="text-xl font-bold" style={{ color: '#1A2F45' }}>{value}</div>
+      <div className="text-lg font-bold leading-tight" style={{ color: '#1A2F45' }}>{value}</div>
       {sub && <div className="text-xs mt-0.5" style={{ color: '#5D7A8A' }}>{sub}</div>}
+    </div>
+  )
+}
+
+function SectionHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="px-4 py-2" style={{ background: '#D6EAF8' }}>
+      <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#5D7A8A' }}>{children}</span>
     </div>
   )
 }
@@ -114,80 +122,66 @@ export default function TorneosClient({ resultados }: Props) {
                 </span>
               </div>
 
-              <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {/* Podio */}
-                  <div>
-                    <h3 className="text-xs font-semibold uppercase tracking-wide mb-4" style={{ color: '#5D7A8A' }}>
-                      {enCurso ? 'Posiciones Actuales' : 'Podio Final'}
-                    </h3>
-                    {t.podio.length === 0 ? (
-                      <p className="text-sm" style={{ color: '#5D7A8A' }}>Sin datos</p>
-                    ) : (
-                      <div className="space-y-3">
-                        {t.podio.map((p, i) => (
-                          <div key={p.nombre} className="flex items-center gap-3">
-                            <span className="text-2xl w-8 text-center">{PODIO_MEDAL[i]}</span>
-                            <div className="flex-1 rounded-lg px-4 py-2.5 flex items-center justify-between"
-                              style={{
-                                background: i === 0 ? '#FEF9E7' : i === 1 ? '#F8F9F9' : '#FDF2E9',
-                                border: `2px solid ${i === 0 ? '#D4AC0D' : i === 1 ? '#AED6F1' : '#E59866'}`,
-                              }}>
-                              <div className="flex items-center gap-2">
-                                <span className="w-3 h-3 rounded-full" style={{ background: playerColor(p.nombre) }} />
-                                <span className="font-bold" style={{ color: '#1A2F45' }}>{p.nombre}</span>
-                              </div>
-                              <div className="text-right">
-                                <span className="font-bold text-lg" style={{ color: '#1A2F45' }}>{p.wins}</span>
-                                <span className="text-xs ml-1" style={{ color: '#5D7A8A' }}>victorias</span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+              {/* ── Podio ── */}
+              <SectionHeader>{enCurso ? 'Posiciones Actuales' : 'Podio Final'}</SectionHeader>
+              {t.podio.length === 0 ? (
+                <p className="p-4 text-sm" style={{ color: '#5D7A8A' }}>Sin datos</p>
+              ) : (
+                <div className="grid grid-cols-3 divide-x" style={{ borderColor: '#AED6F1' }}>
+                  {t.podio.map((p, i) => {
+                    const bg = i === 0 ? '#FEF9E7' : i === 1 ? '#F8F9F9' : '#FDF2E9'
+                    const border = i === 0 ? '#D4AC0D' : i === 1 ? '#AED6F1' : '#E59866'
+                    return (
+                      <div key={p.nombre} className="flex flex-col items-center py-4 px-2 gap-1"
+                        style={{ background: bg, borderTop: `3px solid ${border}` }}>
+                        <span className="text-2xl">{PODIO_MEDAL[i]}</span>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: playerColor(p.nombre) }} />
+                          <span className="font-bold text-sm text-center leading-tight" style={{ color: '#1A2F45' }}>{p.nombre}</span>
+                        </div>
+                        <div className="text-center">
+                          <span className="font-bold text-xl" style={{ color: '#1A2F45' }}>{p.wins}</span>
+                          <div className="text-xs" style={{ color: '#5D7A8A' }}>victorias</div>
+                        </div>
+                        <div className="text-xs" style={{ color: '#5D7A8A' }}>{p.partidas} partidas</div>
                       </div>
-                    )}
-                  </div>
-
-                  {/* Stats del torneo */}
-                  <div>
-                    <h3 className="text-xs font-semibold uppercase tracking-wide mb-4" style={{ color: '#5D7A8A' }}>
-                      Cifras del Torneo
-                    </h3>
-                    <div className="grid grid-cols-2 gap-2">
-                      <KpiBox label="Partidas" value={t.nPartidas} />
-                      <KpiBox label="Jugadores únicos" value={t.nJugadores} />
-                      <KpiBox label="Grand Slams" value={t.grandSlams} sub="partidas con los 6 miembros" />
-                      <KpiBox label="Victorias Flawless" value={t.flawless} sub="con 11 puntos exactos" />
-                      <KpiBox label="Puntos totales" value={t.totalPuntos.toLocaleString('es-AR')} />
-                      <KpiBox label="VPs conseguidos" value={t.totalVP.toLocaleString('es-AR')} sub="puntos de cartas" />
-                      <KpiBox
-                        label="Con Ejército"
-                        value={`${t.conEjercito} (${t.nPartidas > 0 ? Math.round(t.conEjercito / t.nPartidas * 100) : 0}%)`}
-                        sub="partidas con ejército más grande"
-                      />
-                      <KpiBox
-                        label="Con Camino"
-                        value={`${t.conCamino} (${t.nPartidas > 0 ? Math.round(t.conCamino / t.nPartidas * 100) : 0}%)`}
-                        sub="partidas con camino más largo"
-                      />
-                      <KpiBox
-                        label="Prom. jugadores"
-                        value={t.promedioJugadoresPorPartida}
-                        sub="por partida"
-                      />
-                      <KpiBox
-                        label="Prom. pts/jugador"
-                        value={t.promedioPuntosPorJugador}
-                        sub="promedio de puntos por resultado"
-                      />
-                      <KpiBox
-                        label="Cebollitas"
-                        value={t.cebollitas}
-                        sub="9-10 pts sin ganar"
-                      />
-                    </div>
-                  </div>
+                    )
+                  })}
                 </div>
+              )}
+
+              {/* ── Cifras generales ── */}
+              <SectionHeader>Cifras Generales</SectionHeader>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3">
+                <KpiBox label="Partidas" value={t.nPartidas} />
+                <KpiBox label="Jugadores únicos" value={t.nJugadores} />
+                <KpiBox
+                  label="Grand Slams"
+                  value={`${t.grandSlams}`}
+                  sub={`${t.nPartidas > 0 ? Math.round(t.grandSlams / t.nPartidas * 100) : 0}% del total`}
+                />
+                <KpiBox
+                  label="Cebollitas"
+                  value={t.cebollitas}
+                  sub={`en ${t.nPartidas} partidas`}
+                />
+              </div>
+
+              {/* ── Datos de partidas ── */}
+              <SectionHeader>Datos de Partidas</SectionHeader>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3">
+                <KpiBox label="Puntos totales" value={t.totalPuntos.toLocaleString('es-AR')} />
+                <KpiBox label="VPs conseguidos" value={t.totalVP.toLocaleString('es-AR')} sub="puntos de cartas" />
+                <KpiBox
+                  label="Con Ejército"
+                  value={`${t.conEjercito}`}
+                  sub={`${t.nPartidas > 0 ? Math.round(t.conEjercito / t.nPartidas * 100) : 0}% del total`}
+                />
+                <KpiBox
+                  label="Con Camino"
+                  value={`${t.conCamino}`}
+                  sub={`${t.nPartidas > 0 ? Math.round(t.conCamino / t.nPartidas * 100) : 0}% del total`}
+                />
               </div>
             </div>
           )

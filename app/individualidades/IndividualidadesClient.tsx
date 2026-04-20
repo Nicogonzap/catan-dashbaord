@@ -272,7 +272,6 @@ export default function IndividualidadesClient({ stats, resultados }: Props) {
                       {s.ranking ? (
                         <span className="font-bold">
                           {MEDAL[s.ranking] ?? `#${s.ranking}`}
-                          {!MEDAL[s.ranking] && ` #${s.ranking}`}
                         </span>
                       ) : (
                         <span style={{ color: '#AED6F1' }}>—</span>
