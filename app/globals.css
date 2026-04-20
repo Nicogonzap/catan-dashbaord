@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ocean-deep: #1B6CA8;
+  --ocean-mid: #2E86C1;
+  --ocean-nav: #154E80;
+  --card-bg: #EBF5FB;
+  --card-bg-dark: #D6EAF8;
+  --card-border: #AED6F1;
+  --text-on-card: #1A2F45;
+  --text-muted-card: #5D7A8A;
+  --accent-gold: #D4AC0D;
+}
+
+body {
+  background-color: var(--ocean-deep);
+  background-image:
+    radial-gradient(circle at 20% 50%, rgba(46,134,193,0.4) 0%, transparent 60%),
+    radial-gradient(circle at 80% 20%, rgba(93,173,226,0.2) 0%, transparent 50%);
+  min-height: 100vh;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+}
+
+.card-dark {
+  background: var(--card-bg-dark);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+}
+
+.page-title {
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: rgba(255,255,255,0.1); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.5); }
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+}
