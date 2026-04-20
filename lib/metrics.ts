@@ -139,6 +139,22 @@ export function victoriasporSede(
   return Object.entries(sedes).map(([sede, vals]) => ({ sede, ...vals }))
 }
 
+export function calcularMaxVictoriasEnEvento(
+  resultados: ResultadoRaw[],
+  jugadorNombre: string
+): number {
+  const porEvento: Record<string | number, number> = {}
+  for (const r of resultados) {
+    if (r.jugadores.nombre !== jugadorNombre) continue
+    if (r.rank_en_partida !== 1) continue
+    const eventoId = (r.partidas as any).eventos?.id
+    if (eventoId == null) continue
+    porEvento[eventoId] = (porEvento[eventoId] ?? 0) + 1
+  }
+  const vals = Object.values(porEvento)
+  return vals.length > 0 ? Math.max(...vals) : 0
+}
+
 export function isGrandSlam(jugadoresPartida: string[]): boolean {
   const set = new Set(jugadoresPartida)
   return (
