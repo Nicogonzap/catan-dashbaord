@@ -165,6 +165,26 @@ export async function insertResultados(resultados: Array<{
   if (error) throw error
 }
 
+export async function getUltimoEvento() {
+  const { data } = await supabase
+    .from('eventos')
+    .select('*')
+    .order('numero_evento', { ascending: false })
+    .limit(1)
+    .single()
+  return data ?? null
+}
+
+export async function getPartidasDeEvento(eventoId: number) {
+  const { data, error } = await supabase
+    .from('partidas')
+    .select('id, numero_partida, fecha, es_grand_slam, total_jugadores, orden_turno, resultados(id, rank_en_partida, puntos_totales, jugadores(nombre))')
+    .eq('evento_id', eventoId)
+    .order('numero_partida', { ascending: true })
+  if (error) throw error
+  return data ?? []
+}
+
 export async function actualizarNombreJugador(id: string, nombre: string) {
   const { error } = await supabase.from('jugadores').update({ nombre }).eq('id', id)
   if (error) throw error
