@@ -9,9 +9,7 @@ const links = [
   { href: '/individualidades', label: 'Individualidades' },
   { href: '/torneos',          label: 'Torneos' },
   { href: '/stats',            label: 'Stats' },
-  { href: '/admin/cargar',     label: 'Admin' },
-  { href: '/admin/historial',  label: 'Historial' },
-  { href: '/admin/usuarios',   label: 'Usuarios' },
+  { href: '/admin/cargar',     label: 'Usuarios' },
 ]
 
 export default function Navbar() {
@@ -29,7 +27,7 @@ export default function Navbar() {
             key={l.href}
             href={l.href}
             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-              pathname === l.href || (l.href !== '/' && pathname.startsWith(l.href))
+              pathname === l.href || (l.href !== '/' && (pathname.startsWith(l.href) || (l.href === '/admin/cargar' && pathname.startsWith('/admin'))))
                 ? 'bg-white/20 text-white'
                 : 'text-white/75 hover:text-white hover:bg-white/10'
             }`}

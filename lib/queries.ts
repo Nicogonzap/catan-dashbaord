@@ -165,6 +165,11 @@ export async function insertResultados(resultados: Array<{
   if (error) throw error
 }
 
+export async function actualizarNombreJugador(id: string, nombre: string) {
+  const { error } = await supabase.from('jugadores').update({ nombre }).eq('id', id)
+  if (error) throw error
+}
+
 // ── Historial / ediciones ────────────────────────────────────────────────────
 
 export async function getPartidasLista() {
