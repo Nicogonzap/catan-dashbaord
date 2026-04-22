@@ -165,14 +165,36 @@ export async function insertResultados(resultados: Array<{
   if (error) throw error
 }
 
-export async function getUltimoEvento() {
-  const { data } = await supabase
+export async function getUltimosEventos(n: number) {
+  const { data, error } = await supabase
     .from('eventos')
-    .select('*')
+    .select('id, numero_evento, fecha, ubicacion, partidas(id)')
     .order('numero_evento', { ascending: false })
-    .limit(1)
-    .single()
-  return data ?? null
+    .limit(n)
+  if (error) throw error
+  return (data ?? []).map(e => ({
+    id: e.id,
+    numero_evento: e.numero_evento,
+    fecha: e.fecha,
+    ubicacion: e.ubicacion,
+    partidas_count: (e.partidas as any[]).length,
+  }))
+}
+
+// Returns partidas played + victories per jugador_id for a given year
+export async function getConteoJugadoresAno(year: number): Promise<Record<string, { partidas: number; victorias: number }>> {
+  const { data: pData } = await supabase
+    .from('partidas').select('id').gte('fecha', `${year}-01-01`).lte('fecha', `${year}-12-31`)
+  const ids = (pData ?? []).map((p: any) => p.id)
+  if (ids.length === 0) return {}
+  const { data } = await supabase.from('resultados').select('jugador_id, rank_en_partida').in('partida_id', ids)
+  const result: Record<string, { partidas: number; victorias: number }> = {}
+  for (const r of data ?? []) {
+    if (!result[r.jugador_id]) result[r.jugador_id] = { partidas: 0, victorias: 0 }
+    result[r.jugador_id].partidas++
+    if (r.rank_en_partida === 1) result[r.jugador_id].victorias++
+  }
+  return result
 }
 
 export async function getPartidasDeEvento(eventoId: number) {

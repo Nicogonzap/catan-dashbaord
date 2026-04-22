@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import {
@@ -7,9 +7,10 @@ import {
   getPartidasDeEvento, getUltimoNumeroPartida,
 } from '@/lib/queries'
 import { isGrandSlam } from '@/lib/metrics'
+import { MIEMBROS_OFICIALES } from '@/lib/colors'
 
 interface Jugador { id: string; nombre: string; es_miembro_oficial: boolean }
-interface Evento { id: number; numero_evento: number; fecha: string; ubicacion: string }
+interface EventoConConteo { id: number; numero_evento: number; fecha: string; ubicacion: string; partidas_count: number }
 interface ResultadoForm {
   jugador_id: string; nombre: string
   puntos_tablero: number; puntos_pv: number
@@ -25,15 +26,14 @@ interface Props {
   jugadores: Jugador[]
   ultimaPartida: number
   ubicaciones: string[]
-  eventos: Evento[]
-  ultimoEvento: Evento | null
+  ultimosEventos: EventoConConteo[]
+  conteoJugadores: Record<string, { partidas: number; victorias: number }>
 }
 
 function calcTotal(r: ResultadoForm) {
   return r.puntos_tablero + r.puntos_pv + (r.ejercito_mas_grande ? 2 : 0) + (r.camino_mas_largo ? 2 : 0)
 }
 
-// Tie only matters when 2+ players reach the 10-point winning threshold
 function hasTiePrimero(resultados: ResultadoForm[]): boolean {
   const totals = resultados.map(calcTotal)
   if (totals.length === 0) return false
@@ -47,7 +47,6 @@ function calcRanks(resultados: ResultadoForm[], ganadorManualId: string | null):
   if (totals.length === 0) return []
   const max = Math.max(...totals)
   const tie = totals.filter(t => t === max).length > 1
-
   return resultados.map((r, i) => {
     if (tie && ganadorManualId) {
       if (r.jugador_id === ganadorManualId) return 1
@@ -63,14 +62,43 @@ function formatFecha(f: string) {
 
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' }
 
-// ─── Formulario de nueva partida ──────────────────────────────────────────────
+// ─── Tarjeta de evento ─────────────────────────────────────────────────────────
+function EventoCard({ evento, onSelect }: { evento: EventoConConteo; onSelect: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className="w-full text-left card p-4 hover:shadow-lg transition-shadow border-2"
+      style={{ borderColor: '#AED6F1' }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-lg font-bold" style={{ color: '#154E80' }}>Evento #{evento.numero_evento}</span>
+          </div>
+          <p className="text-xs mb-1" style={{ color: '#5D7A8A' }}>
+            {formatFecha(evento.fecha)}
+          </p>
+          <div className="flex gap-3 text-xs" style={{ color: '#5D7A8A' }}>
+            <span>Sede: <strong style={{ color: '#1A2F45' }}>{evento.ubicacion}</strong></span>
+            <span>·</span>
+            <span><strong style={{ color: '#1A2F45' }}>{evento.partidas_count}</strong> partida{evento.partidas_count !== 1 ? 's' : ''}</span>
+          </div>
+        </div>
+        <span className="text-sm font-semibold shrink-0 mt-1" style={{ color: '#154E80' }}>Seleccionar →</span>
+      </div>
+    </button>
+  )
+}
+
+// ─── Formulario de nueva partida ───────────────────────────────────────────────
 function PartidaForm({
-  jugadoresList, onGuardar, onCancelar, numeroPartida,
+  tier1, tier2, tier3, onGuardar, onCancelar, numeroPartida,
 }: {
-  jugadoresList: Jugador[]
-  onGuardar: (data: {
-    resultados: ResultadoForm[]; ordenTurno: string[]; ganadorManual: string | null
-  }) => Promise<void>
+  tier1: Jugador[]
+  tier2: Jugador[]
+  tier3: Jugador[]
+  onGuardar: (data: { resultados: ResultadoForm[]; ordenTurno: string[]; ganadorManual: string | null }) => Promise<void>
   onCancelar: () => void
   numeroPartida: number
 }) {
@@ -81,12 +109,12 @@ function PartidaForm({
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
 
-  // Nuevo jugador inline
+  const [showResto, setShowResto] = useState(false)
   const [showNuevo, setShowNuevo] = useState(false)
   const [nuevoNombre, setNuevoNombre] = useState('')
   const [nuevoEsMiembro, setNuevoEsMiembro] = useState(false)
   const [creandoJugador, setCreandoJugador] = useState(false)
-  const [listaLocal, setListaLocal] = useState(jugadoresList)
+  const [tier3Local, setTier3Local] = useState(tier3)
 
   async function crearJugador() {
     if (!nuevoNombre.trim()) return
@@ -96,11 +124,15 @@ function PartidaForm({
       .insert({ nombre: nuevoNombre.trim(), es_miembro_oficial: nuevoEsMiembro, activo: true })
       .select().single()
     if (error) { alert(error.message); setCreandoJugador(false); return }
-    setListaLocal(prev => [...prev, data as Jugador].sort((a, b) => a.nombre.localeCompare(b.nombre)))
+    const nuevo = data as Jugador
+    setTier3Local(prev => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre)))
+    setShowResto(true)
     setNuevoNombre(''); setNuevoEsMiembro(false); setShowNuevo(false); setCreandoJugador(false)
   }
 
-  function toggleJugador(jId: string) {
+  const allVisible = [...tier1, ...tier2, ...(showResto ? tier3Local : [])]
+
+  function toggleJugador(jId: string, nombreJug: string) {
     const sel = jugadoresSeleccionados.includes(jId)
     let next: string[]
     if (sel) {
@@ -110,8 +142,9 @@ function PartidaForm({
       next = [...jugadoresSeleccionados, jId]
     }
     setJugadoresSeleccionados(next)
+    const allJ = [...tier1, ...tier2, ...tier3Local]
     const nuevosRes = next.map(id => {
-      const jug = listaLocal.find(j => j.id === id)!
+      const jug = allJ.find(j => j.id === id)!
       return resultados.find(r => r.jugador_id === id) ?? {
         jugador_id: id, nombre: jug.nombre,
         puntos_tablero: 2, puntos_pv: 0,
@@ -119,8 +152,8 @@ function PartidaForm({
       }
     })
     setResultados(nuevosRes)
-    const nombres = next.map(id => listaLocal.find(j => j.id === id)?.nombre ?? '')
-    setOrdenTurno(ot => ot.filter(n => nombres.includes(n)))
+    const nombresNext = next.map(id => allJ.find(j => j.id === id)?.nombre ?? '')
+    setOrdenTurno(ot => ot.filter(n => nombresNext.includes(n)))
     if (ganadorManual && !next.includes(ganadorManual)) setGanadorManual(null)
   }
 
@@ -134,21 +167,32 @@ function PartidaForm({
 
   const grandSlam = isGrandSlam(resultados.map(r => r.nombre))
   const hayEmpate = hasTiePrimero(resultados)
+  const ranks = calcRanks(resultados, ganadorManual)
 
   async function handleGuardar() {
     setError('')
     if (resultados.length < 4) { setError('Mínimo 4 jugadores'); return }
     if (hayEmpate && !ganadorManual) { setError('Hay empate en 10 puntos — seleccioná el ganador'); return }
     setGuardando(true)
-    try {
-      await onGuardar({ resultados, ordenTurno, ganadorManual })
-    } catch (e: any) {
-      setError(e.message ?? 'Error desconocido')
-    }
+    try { await onGuardar({ resultados, ordenTurno, ganadorManual }) }
+    catch (e: any) { setError(e.message ?? 'Error desconocido') }
     setGuardando(false)
   }
 
-  const ranks = calcRanks(resultados, ganadorManual)
+  function PlayerButton({ j }: { j: Jugador }) {
+    const sel = jugadoresSeleccionados.includes(j.id)
+    return (
+      <button type="button" onClick={() => toggleJugador(j.id, j.nombre)}
+        className="px-3 py-1.5 rounded-full text-sm font-semibold border-2 transition-all"
+        style={{
+          background: sel ? '#154E80' : '#EBF5FB',
+          color: sel ? '#fff' : '#1A2F45',
+          borderColor: '#AED6F1',
+        }}>
+        {j.nombre}
+      </button>
+    )
+  }
 
   return (
     <div className="card p-5 border-2" style={{ borderColor: '#2E86C1' }}>
@@ -166,53 +210,66 @@ function PartidaForm({
 
       {/* Selector de jugadores */}
       <div className="mb-4">
-        <div className="flex items-center gap-3 mb-2">
-          <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#5D7A8A' }}>Jugadores (4-6)</label>
-          <button type="button" onClick={() => setShowNuevo(v => !v)}
-            className="px-2 py-0.5 rounded text-xs border" style={{ borderColor: '#AED6F1', color: '#5D7A8A' }}>
-            + Nuevo jugador
-          </button>
+        <label className="text-xs font-semibold uppercase tracking-wide block mb-2" style={{ color: '#5D7A8A' }}>
+          Jugadores (4-6)
+        </label>
+
+        {/* Tier 1: 6 oficiales */}
+        <div className="flex flex-wrap gap-2 mb-2">
+          {tier1.map(j => <PlayerButton key={j.id} j={j} />)}
         </div>
 
-        {showNuevo && (
-          <div className="mb-3 p-3 rounded-lg border flex flex-wrap gap-3 items-end"
-            style={{ borderColor: '#AED6F1', background: '#EBF5FB' }}>
-            <div>
-              <label className="text-xs font-semibold block mb-1" style={{ color: '#5D7A8A' }}>Nombre</label>
-              <input type="text" value={nuevoNombre} onChange={e => setNuevoNombre(e.target.value)}
-                placeholder="Ej: Rodrigo"
-                className="rounded border px-2 py-1 text-sm" style={{ borderColor: '#AED6F1', color: '#1A2F45' }} />
-            </div>
-            <label className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer" style={{ color: '#5D7A8A' }}>
-              <input type="checkbox" checked={nuevoEsMiembro} onChange={e => setNuevoEsMiembro(e.target.checked)} />
-              Miembro oficial
-            </label>
-            <button type="button" onClick={crearJugador} disabled={creandoJugador || !nuevoNombre.trim()}
-              className="px-3 py-1 rounded text-sm font-semibold text-white disabled:opacity-50" style={{ background: '#154E80' }}>
-              {creandoJugador ? 'Creando...' : 'Crear'}
-            </button>
-            <button type="button" onClick={() => setShowNuevo(false)}
-              className="px-2 py-1 rounded text-xs border" style={{ borderColor: '#AED6F1', color: '#5D7A8A' }}>
-              Cancelar
-            </button>
+        {/* Tier 2: 3 más frecuentes no-oficiales */}
+        {tier2.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {tier2.map(j => <PlayerButton key={j.id} j={j} />)}
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2">
-          {listaLocal.map(j => {
-            const sel = jugadoresSeleccionados.includes(j.id)
-            return (
-              <button key={j.id} type="button" onClick={() => toggleJugador(j.id)}
-                className="px-3 py-1.5 rounded-full text-sm font-semibold border-2 transition-all"
-                style={{
-                  background: sel ? '#154E80' : '#EBF5FB',
-                  color: sel ? '#fff' : '#1A2F45',
-                  borderColor: '#AED6F1',
-                }}>
-                {j.nombre}
+        {/* Tier 3: resto de jugadores registrados */}
+        {!showResto ? (
+          <button type="button" onClick={() => setShowResto(true)}
+            className="px-3 py-1.5 rounded-full text-sm font-semibold border-2 transition-all"
+            style={{ borderColor: '#AED6F1', background: '#EBF5FB', color: '#5D7A8A' }}>
+            + Otro jugador ya registrado
+          </button>
+        ) : (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {tier3Local.map(j => <PlayerButton key={j.id} j={j} />)}
+          </div>
+        )}
+
+        {/* Nuevo jugador */}
+        <div className="mt-2">
+          {!showNuevo ? (
+            <button type="button" onClick={() => setShowNuevo(true)}
+              className="px-3 py-1.5 rounded-full text-sm font-semibold border-2 transition-all"
+              style={{ borderColor: '#AED6F1', background: '#EBF5FB', color: '#5D7A8A' }}>
+              + Nuevo jugador
+            </button>
+          ) : (
+            <div className="p-3 rounded-lg border flex flex-wrap gap-3 items-end"
+              style={{ borderColor: '#AED6F1', background: '#EBF5FB' }}>
+              <div>
+                <label className="text-xs font-semibold block mb-1" style={{ color: '#5D7A8A' }}>Nombre</label>
+                <input type="text" value={nuevoNombre} onChange={e => setNuevoNombre(e.target.value)}
+                  placeholder="Ej: Rodrigo"
+                  className="rounded border px-2 py-1 text-sm" style={{ borderColor: '#AED6F1', color: '#1A2F45' }} />
+              </div>
+              <label className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer" style={{ color: '#5D7A8A' }}>
+                <input type="checkbox" checked={nuevoEsMiembro} onChange={e => setNuevoEsMiembro(e.target.checked)} />
+                Miembro oficial
+              </label>
+              <button type="button" onClick={crearJugador} disabled={creandoJugador || !nuevoNombre.trim()}
+                className="px-3 py-1 rounded text-sm font-semibold text-white disabled:opacity-50" style={{ background: '#154E80' }}>
+                {creandoJugador ? 'Creando...' : 'Crear'}
               </button>
-            )
-          })}
+              <button type="button" onClick={() => setShowNuevo(false)}
+                className="px-2 py-1 rounded text-xs border" style={{ borderColor: '#AED6F1', color: '#5D7A8A' }}>
+                Cancelar
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -335,12 +392,12 @@ function PartidaForm({
 }
 
 // ─── Componente principal ──────────────────────────────────────────────────────
-export default function CargarClient({ jugadores, ultimaPartida: ultimaPartidaInicial, ubicaciones, eventos, ultimoEvento }: Props) {
+export default function CargarClient({ jugadores, ultimaPartida: ultimaPartidaInicial, ubicaciones, ultimosEventos, conteoJugadores }: Props) {
   const router = useRouter()
   const [checking, setChecking] = useState(true)
   const [authed, setAuthed] = useState(false)
 
-  const [eventoActivo, setEventoActivo] = useState<Evento | null>(null)
+  const [eventoActivo, setEventoActivo] = useState<EventoConConteo | null>(null)
   const [partidasDeEvento, setPartidasDeEvento] = useState<PartidaResumen[]>([])
   const [loadingPartidas, setLoadingPartidas] = useState(false)
   const [proximaPartida, setProximaPartida] = useState(ultimaPartidaInicial + 1)
@@ -350,13 +407,31 @@ export default function CargarClient({ jugadores, ultimaPartida: ultimaPartidaIn
   const [mensajeExito, setMensajeExito] = useState('')
 
   // Nuevo evento form
-  const [neNumero, setNeNumero] = useState((eventos[0]?.numero_evento ?? 0) + 1)
+  const [neNumero, setNeNumero] = useState((ultimosEventos[0]?.numero_evento ?? 0) + 1)
   const [neFecha, setNeFecha] = useState(new Date().toISOString().split('T')[0])
   const [neUbicacion, setNeUbicacion] = useState(ubicaciones[0] ?? '')
   const [neNuevaUbic, setNeNuevaUbic] = useState('')
   const [neUseNueva, setNeUseNueva] = useState(false)
   const [creandoEvento, setCreandoEvento] = useState(false)
   const [errorEvento, setErrorEvento] = useState('')
+
+  // Compute player tiers
+  const { tier1, tier2, tier3 } = useMemo(() => {
+    const oficiales = jugadores.filter(j => MIEMBROS_OFICIALES.includes(j.nombre))
+    const t1 = [...oficiales].sort((a, b) => {
+      const va = conteoJugadores[a.id]?.victorias ?? 0
+      const vb = conteoJugadores[b.id]?.victorias ?? 0
+      if (vb !== va) return vb - va
+      return (conteoJugadores[b.id]?.partidas ?? 0) - (conteoJugadores[a.id]?.partidas ?? 0)
+    })
+    const noOficiales = jugadores.filter(j => !MIEMBROS_OFICIALES.includes(j.nombre))
+    const t2 = [...noOficiales]
+      .sort((a, b) => (conteoJugadores[b.id]?.partidas ?? 0) - (conteoJugadores[a.id]?.partidas ?? 0))
+      .slice(0, 3)
+    const t2Ids = new Set(t2.map(j => j.id))
+    const t3 = noOficiales.filter(j => !t2Ids.has(j.id)).sort((a, b) => a.nombre.localeCompare(b.nombre))
+    return { tier1: t1, tier2: t2, tier3: t3 }
+  }, [jugadores, conteoJugadores])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -366,7 +441,7 @@ export default function CargarClient({ jugadores, ultimaPartida: ultimaPartidaIn
     })
   }, [router])
 
-  async function seleccionarEvento(evento: Evento) {
+  async function seleccionarEvento(evento: EventoConConteo) {
     setEventoActivo(evento)
     setShowNuevoEvento(false)
     setShowNuevaPartida(false)
@@ -375,11 +450,8 @@ export default function CargarClient({ jugadores, ultimaPartida: ultimaPartidaIn
     try {
       const partidas = await getPartidasDeEvento(evento.id)
       setPartidasDeEvento(partidas as unknown as PartidaResumen[])
-    } catch (e: any) {
-      alert(e.message)
-    }
+    } catch (e: any) { alert(e.message) }
     setLoadingPartidas(false)
-    // Re-fetch latest partida number
     const last = await getUltimoNumeroPartida()
     setProximaPartida(last + 1)
   }
@@ -393,11 +465,9 @@ export default function CargarClient({ jugadores, ultimaPartida: ultimaPartidaIn
         fecha: neFecha,
         ubicacion: neUseNueva ? neNuevaUbic.trim() : neUbicacion,
       })
-      await seleccionarEvento(ev as Evento)
+      await seleccionarEvento({ ...ev, partidas_count: 0 } as EventoConConteo)
       setShowNuevoEvento(false)
-    } catch (e: any) {
-      setErrorEvento(e.message ?? 'Error al crear evento')
-    }
+    } catch (e: any) { setErrorEvento(e.message ?? 'Error al crear evento') }
     setCreandoEvento(false)
   }
 
@@ -433,9 +503,9 @@ export default function CargarClient({ jugadores, ultimaPartida: ultimaPartidaIn
       penalidad: 0,
     })))
 
-    // Refresh partidas list
     const updated = await getPartidasDeEvento(eventoActivo.id)
     setPartidasDeEvento(updated as unknown as PartidaResumen[])
+    setEventoActivo(prev => prev ? { ...prev, partidas_count: prev.partidas_count + 1 } : prev)
     setProximaPartida(nextNum + 1)
     setShowNuevaPartida(false)
     setMensajeExito(`✅ Partida #${nextNum} guardada`)
@@ -445,120 +515,104 @@ export default function CargarClient({ jugadores, ultimaPartida: ultimaPartidaIn
   if (checking) return <div className="page-title text-center py-20">Verificando sesión...</div>
   if (!authed) return null
 
+  const ultimoEvento = ultimosEventos[0] ?? null
+  const otrosEventos = ultimosEventos.slice(1)
+
   return (
     <div>
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="page-title text-3xl font-bold">Cargar Partida</h1>
-        <button onClick={() => supabase.auth.signOut().then(() => router.push('/admin/login'))}
-          className="text-sm text-white/70 hover:text-white underline">
-          Cerrar sesión
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => { setEventoActivo(null); setShowNuevaPartida(false); setShowNuevoEvento(true) }}
+            className="px-4 py-2 rounded-lg text-sm font-semibold text-white transition-opacity"
+            style={{ background: '#27AE60' }}
+          >
+            + Nuevo evento
+          </button>
+          <button onClick={() => supabase.auth.signOut().then(() => router.push('/admin/login'))}
+            className="text-sm text-white/70 hover:text-white underline">
+            Cerrar sesión
+          </button>
+        </div>
       </div>
 
-      {/* ── Sección de evento ── */}
+      {/* Formulario de nuevo evento (aparece en cualquier estado) */}
+      {showNuevoEvento && (
+        <div className="card p-5 border-2 mb-6" style={{ borderColor: '#27AE60' }}>
+          <h3 className="font-bold mb-4" style={{ color: '#1A2F45' }}>Nuevo Evento</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide block mb-1" style={{ color: '#5D7A8A' }}>Número de evento</label>
+              <input type="number" value={neNumero} onChange={e => setNeNumero(Number(e.target.value))} min={1}
+                className="w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: '#AED6F1', color: '#1A2F45' }} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide block mb-1" style={{ color: '#5D7A8A' }}>Fecha</label>
+              <input type="date" value={neFecha} onChange={e => setNeFecha(e.target.value)}
+                className="w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: '#AED6F1', color: '#1A2F45' }} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide block mb-1" style={{ color: '#5D7A8A' }}>Sede</label>
+              {!neUseNueva ? (
+                <div className="flex gap-2">
+                  <select value={neUbicacion} onChange={e => setNeUbicacion(e.target.value)}
+                    className="flex-1 rounded-lg border px-3 py-2 text-sm" style={{ borderColor: '#AED6F1', color: '#1A2F45' }}>
+                    {ubicaciones.map(u => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                  <button type="button" onClick={() => setNeUseNueva(true)}
+                    className="px-2 py-1 rounded text-xs border" style={{ borderColor: '#AED6F1', color: '#5D7A8A' }}>+ Nueva</button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input type="text" value={neNuevaUbic} onChange={e => setNeNuevaUbic(e.target.value)}
+                    placeholder="Ej: Gallo, Costa..." required
+                    className="flex-1 rounded-lg border px-3 py-2 text-sm" style={{ borderColor: '#AED6F1', color: '#1A2F45' }} />
+                  <button type="button" onClick={() => setNeUseNueva(false)}
+                    className="px-2 py-1 rounded text-xs border" style={{ borderColor: '#AED6F1', color: '#5D7A8A' }}>✕</button>
+                </div>
+              )}
+            </div>
+          </div>
+          {errorEvento && <p className="text-sm mb-3" style={{ color: '#e74c3c' }}>❌ {errorEvento}</p>}
+          <div className="flex gap-3">
+            <button type="button" onClick={crearEvento} disabled={creandoEvento}
+              className="px-5 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-60"
+              style={{ background: '#154E80' }}>
+              {creandoEvento ? 'Creando...' : 'Crear evento'}
+            </button>
+            <button type="button" onClick={() => setShowNuevoEvento(false)}
+              className="px-4 py-2 rounded-lg text-sm font-semibold"
+              style={{ background: '#EBF5FB', color: '#5D7A8A' }}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
       {!eventoActivo ? (
-        <div className="space-y-4">
-          {/* Último evento */}
+        /* ── Pantalla de selección de evento ── */
+        <div className="space-y-5">
           {ultimoEvento && (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#5D7A8A' }}>
+              <p className="text-xs font-semibold uppercase tracking-wide mb-2 text-white">
                 Último evento registrado
               </p>
-              <button
-                type="button"
-                onClick={() => seleccionarEvento(ultimoEvento)}
-                className="w-full text-left card p-5 hover:shadow-md transition-shadow border-2"
-                style={{ borderColor: '#AED6F1' }}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-3 mb-1">
-                      <span className="text-xl font-bold" style={{ color: '#154E80' }}>Evento #{ultimoEvento.numero_evento}</span>
-                      <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: '#EBF5FB', color: '#154E80' }}>
-                        {ultimoEvento.ubicacion}
-                      </span>
-                    </div>
-                    <p className="text-sm" style={{ color: '#5D7A8A' }}>{formatFecha(ultimoEvento.fecha)}</p>
-                  </div>
-                  <span className="text-sm font-semibold shrink-0" style={{ color: '#154E80' }}>Seleccionar →</span>
-                </div>
-              </button>
+              <EventoCard evento={ultimoEvento} onSelect={() => seleccionarEvento(ultimoEvento)} />
             </div>
           )}
 
-          {/* Otros eventos */}
-          {eventos.length > 1 && (
+          {otrosEventos.length > 0 && (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#5D7A8A' }}>
+              <p className="text-xs font-semibold uppercase tracking-wide mb-2 text-white">
                 Seleccionar otro evento
               </p>
-              <div className="flex flex-wrap gap-2">
-                {eventos.slice(1).map(ev => (
-                  <button key={ev.id} type="button" onClick={() => seleccionarEvento(ev)}
-                    className="px-3 py-1.5 rounded-full text-sm font-semibold border-2 transition-all"
-                    style={{ borderColor: '#AED6F1', background: '#EBF5FB', color: '#1A2F45' }}>
-                    #{ev.numero_evento} — {ev.ubicacion}
-                  </button>
+              <div className="space-y-2">
+                {otrosEventos.map(ev => (
+                  <EventoCard key={ev.id} evento={ev} onSelect={() => seleccionarEvento(ev)} />
                 ))}
-              </div>
-            </div>
-          )}
-
-          {/* Crear nuevo evento */}
-          {!showNuevoEvento ? (
-            <button type="button" onClick={() => setShowNuevoEvento(true)}
-              className="px-5 py-2.5 rounded-lg text-sm font-semibold border-2 transition-all"
-              style={{ borderColor: '#AED6F1', background: '#EBF5FB', color: '#154E80' }}>
-              + Crear nuevo evento
-            </button>
-          ) : (
-            <div className="card p-5 border-2" style={{ borderColor: '#2E86C1' }}>
-              <h3 className="font-bold mb-4" style={{ color: '#1A2F45' }}>Nuevo Evento</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wide block mb-1" style={{ color: '#5D7A8A' }}>Número de evento</label>
-                  <input type="number" value={neNumero} onChange={e => setNeNumero(Number(e.target.value))} min={1}
-                    className="w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: '#AED6F1', color: '#1A2F45' }} />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wide block mb-1" style={{ color: '#5D7A8A' }}>Fecha</label>
-                  <input type="date" value={neFecha} onChange={e => setNeFecha(e.target.value)}
-                    className="w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: '#AED6F1', color: '#1A2F45' }} />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wide block mb-1" style={{ color: '#5D7A8A' }}>Ubicación</label>
-                  {!neUseNueva ? (
-                    <div className="flex gap-2">
-                      <select value={neUbicacion} onChange={e => setNeUbicacion(e.target.value)}
-                        className="flex-1 rounded-lg border px-3 py-2 text-sm" style={{ borderColor: '#AED6F1', color: '#1A2F45' }}>
-                        {ubicaciones.map(u => <option key={u} value={u}>{u}</option>)}
-                      </select>
-                      <button type="button" onClick={() => setNeUseNueva(true)}
-                        className="px-2 py-1 rounded text-xs border" style={{ borderColor: '#AED6F1', color: '#5D7A8A' }}>+ Nueva</button>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <input type="text" value={neNuevaUbic} onChange={e => setNeNuevaUbic(e.target.value)}
-                        placeholder="Ej: Gallo, Costa..." required
-                        className="flex-1 rounded-lg border px-3 py-2 text-sm" style={{ borderColor: '#AED6F1', color: '#1A2F45' }} />
-                      <button type="button" onClick={() => setNeUseNueva(false)}
-                        className="px-2 py-1 rounded text-xs border" style={{ borderColor: '#AED6F1', color: '#5D7A8A' }}>✕</button>
-                    </div>
-                  )}
-                </div>
-              </div>
-              {errorEvento && <p className="text-sm mb-3" style={{ color: '#e74c3c' }}>❌ {errorEvento}</p>}
-              <div className="flex gap-3">
-                <button type="button" onClick={crearEvento} disabled={creandoEvento}
-                  className="px-5 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-60"
-                  style={{ background: '#154E80' }}>
-                  {creandoEvento ? 'Creando...' : 'Crear evento'}
-                </button>
-                <button type="button" onClick={() => setShowNuevoEvento(false)}
-                  className="px-4 py-2 rounded-lg text-sm font-semibold"
-                  style={{ background: '#EBF5FB', color: '#5D7A8A' }}>
-                  Cancelar
-                </button>
               </div>
             </div>
           )}
@@ -569,15 +623,14 @@ export default function CargarClient({ jugadores, ultimaPartida: ultimaPartidaIn
           {/* Header del evento */}
           <div className="card p-4 mb-5 flex items-start justify-between gap-4" style={{ borderLeft: '4px solid #154E80' }}>
             <div>
-              <div className="flex items-center gap-3 mb-0.5">
+              <div className="flex items-center gap-3 mb-1">
                 <span className="text-xl font-bold" style={{ color: '#154E80' }}>Evento #{eventoActivo.numero_evento}</span>
-                <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: '#EBF5FB', color: '#154E80' }}>
-                  {eventoActivo.ubicacion}
-                </span>
               </div>
-              <p className="text-sm" style={{ color: '#5D7A8A' }}>
-                {formatFecha(eventoActivo.fecha)} · {partidasDeEvento.length} partida{partidasDeEvento.length !== 1 ? 's' : ''} registrada{partidasDeEvento.length !== 1 ? 's' : ''}
-              </p>
+              <div className="flex gap-4 text-sm" style={{ color: '#5D7A8A' }}>
+                <span>{formatFecha(eventoActivo.fecha)}</span>
+                <span>Sede: <strong style={{ color: '#1A2F45' }}>{eventoActivo.ubicacion}</strong></span>
+                <span><strong style={{ color: '#1A2F45' }}>{eventoActivo.partidas_count}</strong> partida{eventoActivo.partidas_count !== 1 ? 's' : ''}</span>
+              </div>
             </div>
             <button type="button" onClick={() => { setEventoActivo(null); setShowNuevaPartida(false) }}
               className="text-xs shrink-0" style={{ color: '#5D7A8A' }}>
@@ -585,27 +638,24 @@ export default function CargarClient({ jugadores, ultimaPartida: ultimaPartidaIn
             </button>
           </div>
 
-          {/* Mensaje de éxito */}
           {mensajeExito && (
             <div className="card p-3 mb-4" style={{ background: '#D5F5E3', borderColor: '#27AE60' }}>
               <p className="text-sm" style={{ color: '#1E8449' }}>{mensajeExito}</p>
             </div>
           )}
 
-          {/* Botón nueva partida */}
           {!showNuevaPartida && (
             <button type="button" onClick={() => setShowNuevaPartida(true)}
-              className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white mb-5 transition-opacity"
+              className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white mb-5"
               style={{ background: '#154E80' }}>
               + Nueva partida
             </button>
           )}
 
-          {/* Formulario de nueva partida */}
           {showNuevaPartida && (
             <div className="mb-5">
               <PartidaForm
-                jugadoresList={jugadores}
+                tier1={tier1} tier2={tier2} tier3={tier3}
                 numeroPartida={proximaPartida}
                 onGuardar={guardarPartida}
                 onCancelar={() => setShowNuevaPartida(false)}
@@ -613,17 +663,15 @@ export default function CargarClient({ jugadores, ultimaPartida: ultimaPartidaIn
             </div>
           )}
 
-          {/* Partidas ya registradas */}
           {loadingPartidas ? (
-            <p className="text-sm py-4" style={{ color: '#5D7A8A' }}>Cargando partidas...</p>
+            <p className="text-sm py-4 text-white/70">Cargando partidas...</p>
           ) : partidasDeEvento.length > 0 ? (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: '#5D7A8A' }}>
+              <p className="text-xs font-semibold uppercase tracking-wide mb-3 text-white">
                 Partidas del evento
               </p>
               <div className="space-y-3">
                 {[...partidasDeEvento].reverse().map(p => {
-                  const ganador = p.resultados.find(r => r.rank_en_partida === 1)
                   const sorted = [...p.resultados].sort((a, b) => a.rank_en_partida - b.rank_en_partida)
                   return (
                     <div key={p.id} className="card p-4">
@@ -651,7 +699,7 @@ export default function CargarClient({ jugadores, ultimaPartida: ultimaPartidaIn
               </div>
             </div>
           ) : (
-            <p className="text-sm" style={{ color: '#5D7A8A' }}>Todavía no hay partidas cargadas para este evento.</p>
+            <p className="text-sm text-white/70">Todavía no hay partidas cargadas para este evento.</p>
           )}
         </div>
       )}

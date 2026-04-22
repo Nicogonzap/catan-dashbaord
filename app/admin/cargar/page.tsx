@@ -1,23 +1,25 @@
 export const dynamic = 'force-dynamic'
 
-import { getJugadores, getUltimoNumeroPartida, getUbicaciones, getEventos, getUltimoEvento } from '@/lib/queries'
+import { getJugadores, getUltimoNumeroPartida, getUbicaciones, getUltimosEventos, getConteoJugadoresAno } from '@/lib/queries'
 import CargarClient from './CargarClient'
 
+const CURRENT_YEAR = 2026
+
 export default async function CargarPage() {
-  const [jugadores, ultimaPartida, ubicaciones, eventos, ultimoEvento] = await Promise.all([
+  const [jugadores, ultimaPartida, ubicaciones, ultimosEventos, conteoJugadores] = await Promise.all([
     getJugadores(),
     getUltimoNumeroPartida(),
     getUbicaciones(),
-    getEventos(),
-    getUltimoEvento(),
+    getUltimosEventos(4),
+    getConteoJugadoresAno(CURRENT_YEAR),
   ])
   return (
     <CargarClient
       jugadores={jugadores}
       ultimaPartida={ultimaPartida}
       ubicaciones={ubicaciones}
-      eventos={eventos}
-      ultimoEvento={ultimoEvento}
+      ultimosEventos={ultimosEventos}
+      conteoJugadores={conteoJugadores}
     />
   )
 }

@@ -2,9 +2,25 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { actualizarNombreJugador } from '@/lib/queries'
+import { actualizarNombreJugador, getConteoJugadoresAno } from '@/lib/queries'
+import { MIEMBROS_OFICIALES } from '@/lib/colors'
+
+const CURRENT_YEAR = 2026
 
 type Jugador = { id: string; nombre: string; es_miembro_oficial: boolean; activo: boolean }
+
+function sortJugadores(jgs: Jugador[], conteo: Record<string, { partidas: number; victorias: number }>) {
+  const oficiales = jgs.filter(j => MIEMBROS_OFICIALES.includes(j.nombre))
+    .sort((a, b) => {
+      const va = conteo[a.id]?.victorias ?? 0
+      const vb = conteo[b.id]?.victorias ?? 0
+      if (vb !== va) return vb - va
+      return (conteo[b.id]?.partidas ?? 0) - (conteo[a.id]?.partidas ?? 0)
+    })
+  const noOficiales = jgs.filter(j => !MIEMBROS_OFICIALES.includes(j.nombre))
+    .sort((a, b) => (conteo[b.id]?.partidas ?? 0) - (conteo[a.id]?.partidas ?? 0))
+  return [...oficiales, ...noOficiales]
+}
 
 export default function JugadoresClient() {
   const router = useRouter()
@@ -22,9 +38,12 @@ export default function JugadoresClient() {
         .from('perfiles').select('rol').eq('id', data.session.user.id).single()
       if (perfil?.rol !== 'admin') { setChecking(false); return }
       setIsAdmin(true)
-      const { data: jgs } = await supabase
-        .from('jugadores').select('id, nombre, es_miembro_oficial, activo').order('nombre')
-      setJugadores(jgs ?? [])
+      const [conteo, jgsResult] = await Promise.all([
+        getConteoJugadoresAno(CURRENT_YEAR),
+        supabase.from('jugadores').select('id, nombre, es_miembro_oficial, activo').order('nombre'),
+      ])
+      const jgs = (jgsResult.data ?? []) as Jugador[]
+      setJugadores(sortJugadores(jgs, conteo))
       setChecking(false)
     })
   }, [router])
