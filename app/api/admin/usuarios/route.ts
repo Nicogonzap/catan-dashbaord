@@ -35,13 +35,16 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(result)
 }
 
-// PATCH — update a user's role
+// PATCH — update a user's rol and/or jugador_id
 export async function PATCH(req: NextRequest) {
   if (!await resolveAdmin(req)) return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
-  const { userId, rol } = await req.json()
-  if (!userId || !rol) return NextResponse.json({ error: 'userId y rol requeridos' }, { status: 400 })
+  const { userId, rol, jugador_id } = await req.json()
+  if (!userId) return NextResponse.json({ error: 'userId requerido' }, { status: 400 })
   const svc = createServiceClient()
-  const { error } = await svc.from('perfiles').upsert({ id: userId, rol })
+  const update: Record<string, any> = { id: userId }
+  if (rol !== undefined) update.rol = rol
+  if (jugador_id !== undefined) update.jugador_id = jugador_id || null
+  const { error } = await svc.from('perfiles').upsert(update)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
 }
