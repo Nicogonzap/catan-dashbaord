@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
 export default function LoginPage() {
@@ -59,6 +60,9 @@ export default function LoginPage() {
           >
             {loading ? 'Entrando...' : 'Entrar'}
           </button>
+          <Link href="/admin/registro" className="text-center text-sm hover:underline" style={{ color: '#5D7A8A' }}>
+            ¿No tenés cuenta? Registrarse
+          </Link>
         </form>
       </div>
     </div>

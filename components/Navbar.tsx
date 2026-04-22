@@ -11,6 +11,7 @@ const links = [
   { href: '/stats',            label: 'Stats' },
   { href: '/admin/cargar',     label: 'Admin' },
   { href: '/admin/historial',  label: 'Historial' },
+  { href: '/admin/usuarios',   label: 'Usuarios' },
 ]
 
 export default function Navbar() {
