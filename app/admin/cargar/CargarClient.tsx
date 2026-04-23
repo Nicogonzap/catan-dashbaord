@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import {
   insertEvento, insertPartida, insertResultados,
-  getPartidasDeEvento, getUltimoNumeroPartida,
+  getPartidasDeEvento, getUltimoNumeroPartida, getUltimosEventos,
 } from '@/lib/queries'
 import { isGrandSlam } from '@/lib/metrics'
 import { MIEMBROS_OFICIALES } from '@/lib/colors'
@@ -24,9 +24,7 @@ interface PartidaResumen {
 
 interface Props {
   jugadores: Jugador[]
-  ultimaPartida: number
   ubicaciones: string[]
-  ultimosEventos: EventoConConteo[]
   conteoJugadores: Record<string, { partidas: number; victorias: number }>
 }
 
@@ -392,22 +390,24 @@ function PartidaForm({
 }
 
 // ─── Componente principal ──────────────────────────────────────────────────────
-export default function CargarClient({ jugadores, ultimaPartida: ultimaPartidaInicial, ubicaciones, ultimosEventos, conteoJugadores }: Props) {
+export default function CargarClient({ jugadores, ubicaciones, conteoJugadores }: Props) {
   const router = useRouter()
   const [checking, setChecking] = useState(true)
   const [authed, setAuthed] = useState(false)
 
+  const [ultimosEventos, setUltimosEventos] = useState<EventoConConteo[]>([])
+  const [loadingEventos, setLoadingEventos] = useState(true)
   const [eventoActivo, setEventoActivo] = useState<EventoConConteo | null>(null)
   const [partidasDeEvento, setPartidasDeEvento] = useState<PartidaResumen[]>([])
   const [loadingPartidas, setLoadingPartidas] = useState(false)
-  const [proximaPartida, setProximaPartida] = useState(ultimaPartidaInicial + 1)
+  const [proximaPartida, setProximaPartida] = useState(1)
 
   const [showNuevoEvento, setShowNuevoEvento] = useState(false)
   const [showNuevaPartida, setShowNuevaPartida] = useState(false)
   const [mensajeExito, setMensajeExito] = useState('')
 
   // Nuevo evento form
-  const [neNumero, setNeNumero] = useState((ultimosEventos[0]?.numero_evento ?? 0) + 1)
+  const [neNumero, setNeNumero] = useState(1)
   const [neFecha, setNeFecha] = useState(new Date().toISOString().split('T')[0])
   const [neUbicacion, setNeUbicacion] = useState(ubicaciones[0] ?? '')
   const [neNuevaUbic, setNeNuevaUbic] = useState('')
@@ -440,6 +440,21 @@ export default function CargarClient({ jugadores, ultimaPartida: ultimaPartidaIn
       setChecking(false)
     })
   }, [router])
+
+  // Fetch events and next partida number client-side so data is always fresh
+  useEffect(() => {
+    if (!authed) return
+    setLoadingEventos(true)
+    Promise.all([
+      getUltimosEventos(4),
+      getUltimoNumeroPartida(),
+    ]).then(([eventos, lastPartida]) => {
+      setUltimosEventos(eventos)
+      setProximaPartida(lastPartida + 1)
+      setNeNumero((eventos[0]?.numero_evento ?? 0) + 1)
+      setLoadingEventos(false)
+    })
+  }, [authed])
 
   async function seleccionarEvento(evento: EventoConConteo) {
     setEventoActivo(evento)
@@ -595,14 +610,16 @@ export default function CargarClient({ jugadores, ultimaPartida: ultimaPartidaIn
       {!eventoActivo ? (
         /* ── Pantalla de selección de evento ── */
         <div className="space-y-5">
-          {ultimoEvento && (
+          {loadingEventos ? (
+            <p className="text-sm text-white/70">Cargando eventos...</p>
+          ) : ultimoEvento ? (
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide mb-2 text-white">
                 Último evento registrado
               </p>
               <EventoCard evento={ultimoEvento} onSelect={() => seleccionarEvento(ultimoEvento)} />
             </div>
-          )}
+          ) : null}
 
           {otrosEventos.length > 0 && (
             <div>
