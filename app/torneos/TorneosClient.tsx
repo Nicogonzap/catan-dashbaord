@@ -4,7 +4,7 @@ import { playerColor } from '@/lib/colors'
 
 interface Props { resultados: any[] }
 
-const YEARS = [2024, 2025, 2026]
+const YEARS = [2026, 2025, 2024]
 const CURRENT_YEAR = 2026
 const PODIO_MEDAL = ['🥇', '🥈', '🥉']
 
