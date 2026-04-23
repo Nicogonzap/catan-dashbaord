@@ -5,11 +5,11 @@ import { usePathname } from 'next/navigation'
 const links = [
   { href: '/',                 label: 'Ranking' },
   { href: '/historico',        label: 'Ranking Histórico' },
-  { href: '/eventos',          label: 'Eventos' },
-  { href: '/individualidades', label: 'Individualidades' },
   { href: '/torneos',          label: 'Torneos' },
+  { href: '/eventos',          label: 'Eventos' },
   { href: '/stats',            label: 'Stats' },
-  { href: '/admin/cargar',     label: 'Usuarios' },
+  { href: '/individualidades', label: 'Individualidades' },
+  { href: '/admin/cargar',     label: 'Cargar Partida' },
 ]
 
 export default function Navbar() {
