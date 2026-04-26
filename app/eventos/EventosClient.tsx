@@ -1,15 +1,11 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { playerColor, lightenColor, formatDate, MESES_ES, PLAYER_ORDER } from '@/lib/colors'
+import { getEventos, getResultadosConJugadores } from '@/lib/queries'
 import KpiCard from '@/components/metrics/KpiCard'
 import SectionTitle from '@/components/metrics/SectionTitle'
 import ClusterBar from '@/components/charts/ClusterBar'
 import PlayerBar from '@/components/charts/PlayerBar'
-
-interface Props {
-  eventos: any[]
-  resultados: any[]
-}
 
 // ── helpers ──────────────────────────────────────────────────
 function sortedPlayers(nombres: string[]): string[] {
@@ -42,7 +38,19 @@ function GanadoresBadges({ ganadores }: { ganadores: { nombre: string; victorias
   )
 }
 
-export default function EventosClient({ eventos, resultados }: Props) {
+export default function EventosClient() {
+  const [eventos, setEventos] = useState<any[]>([])
+  const [resultados, setResultados] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([getEventos(), getResultadosConJugadores()]).then(([evs, res]) => {
+      setEventos(evs)
+      setResultados(res)
+      setLoading(false)
+    })
+  }, [])
+
   // Default: last event
   const lastEvento = useMemo(
     () => [...eventos].sort((a, b) => b.numero_evento - a.numero_evento)[0] ?? null,
@@ -178,6 +186,12 @@ export default function EventosClient({ eventos, resultados }: Props) {
   }
 
   // ── Render ────────────────────────────────────────────────
+  if (loading) return (
+    <div className="flex items-center justify-center py-20">
+      <p className="text-white/70">Cargando eventos...</p>
+    </div>
+  )
+
   return (
     <div>
       <h1 className="page-title text-3xl font-bold mb-2">Eventos</h1>
