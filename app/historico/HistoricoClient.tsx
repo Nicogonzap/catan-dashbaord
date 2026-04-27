@@ -104,6 +104,8 @@ export default function HistoricoClient() {
     ? 'Todos los años'
     : selectedYears.sort().join(', ')
 
+  if (loading) return <p className="text-center py-20 text-white/70">Cargando histórico...</p>
+
   return (
     <div>
       <h1 className="page-title text-3xl font-bold mb-4">Ranking Histórico 📊</h1>

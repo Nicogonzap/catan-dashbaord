@@ -47,7 +47,6 @@ export default function IndividualidadesClient() {
     })
   }, [])
 
-  if (loading) return <p className="text-center py-20 text-white/70">Cargando...</p>
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null)
 
   const jugadores = useMemo(() =>
@@ -220,6 +219,8 @@ export default function IndividualidadesClient() {
   }, [selectedPlayer, resultados])
 
   const color = selectedPlayer ? playerColor(selectedPlayer) : '#154E80'
+
+  if (loading) return <p className="text-center py-20 text-white/70">Cargando...</p>
 
   return (
     <div>

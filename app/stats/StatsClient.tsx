@@ -34,7 +34,6 @@ export default function StatsClient() {
     })
   }, [])
 
-  if (loading) return <p className="text-center py-20 text-white/70">Cargando stats...</p>
   const [selectedYears, setSelectedYears] = useState<number[]>([])
 
   function toggleYear(y: number) {
@@ -164,6 +163,8 @@ export default function StatsClient() {
   const label = selectedYears.length === 0
     ? 'Todos los años'
     : selectedYears.sort().join(', ')
+
+  if (loading) return <p className="text-center py-20 text-white/70">Cargando stats...</p>
 
   return (
     <div>

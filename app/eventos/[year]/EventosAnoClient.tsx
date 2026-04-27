@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
-import { playerColor, lightenColor, formatDate, PLAYER_ORDER } from '@/lib/colors'
+import { playerColor, lightenColor, formatDate } from '@/lib/colors'
 import { getResultadosConJugadores, getEventos } from '@/lib/queries'
 import { victoriasAcumuladas } from '@/lib/metrics'
 import { MIEMBROS_OFICIALES } from '@/lib/colors'

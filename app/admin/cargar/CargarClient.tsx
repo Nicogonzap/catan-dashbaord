@@ -129,9 +129,7 @@ function PartidaForm({
     setNuevoNombre(''); setNuevoEsMiembro(false); setShowNuevo(false); setCreandoJugador(false)
   }
 
-  const allVisible = [...tier1, ...tier2, ...(showResto ? tier3Local : [])]
-
-  function toggleJugador(jId: string, nombreJug: string) {
+  function toggleJugador(jId: string, _nombreJug: string) {
     const sel = jugadoresSeleccionados.includes(jId)
     let next: string[]
     if (sel) {

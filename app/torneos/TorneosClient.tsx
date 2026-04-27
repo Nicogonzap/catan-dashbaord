@@ -106,6 +106,8 @@ export default function TorneosClient() {
     [resultados]
   )
 
+  if (loading) return <p className="text-center py-20 text-white/70">Cargando torneos...</p>
+
   return (
     <div>
       <h1 className="page-title text-3xl font-bold mb-6">Torneos</h1>
