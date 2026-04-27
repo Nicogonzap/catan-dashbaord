@@ -1,16 +1,12 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { MIEMBROS_OFICIALES } from '@/lib/colors'
 import { victoriasAcumuladas } from '@/lib/metrics'
+import { getResultadosConJugadores, getAnosDisponibles } from '@/lib/queries'
 import SectionTitle from '@/components/metrics/SectionTitle'
 import KpiCard from '@/components/metrics/KpiCard'
 import RankingTable from '@/components/tables/RankingTable'
 import RankingCharts from '@/components/charts/RankingCharts'
-
-interface Props {
-  resultados: any[]
-  years: number[]
-}
 
 function computeStats(resultados: any[]) {
   const map: Record<string, any> = {}
@@ -44,7 +40,17 @@ function computeStats(resultados: any[]) {
   })).sort((a: any, b: any) => b.victorias - a.victorias)
 }
 
-export default function HistoricoClient({ resultados, years }: Props) {
+export default function HistoricoClient() {
+  const [resultados, setResultados] = useState<any[]>([])
+  const [years, setYears] = useState<number[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([getResultadosConJugadores(), getAnosDisponibles()]).then(([res, yrs]) => {
+      setResultados(res); setYears(yrs); setLoading(false)
+    })
+  }, [])
+
   const [selectedYears, setSelectedYears] = useState<number[]>([])
 
   function toggleYear(y: number) {

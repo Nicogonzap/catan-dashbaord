@@ -1,13 +1,8 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { playerColor } from '@/lib/colors'
+import { getResultadosConJugadores, getEstadisticasJugadores } from '@/lib/queries'
 import SectionTitle from '@/components/metrics/SectionTitle'
-
-interface Props {
-  stats: any[]
-  resultados: any[]
-  year: number | null
-}
 
 const YEARS = [2024, 2025, 2026]
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' }
@@ -41,7 +36,18 @@ function Td({ children, center }: { children: React.ReactNode; center?: boolean 
   return <td className={`px-4 py-2.5 ${center ? 'text-center' : ''}`} style={{ color: '#1A2F45' }}>{children}</td>
 }
 
-export default function IndividualidadesClient({ stats, resultados }: Props) {
+export default function IndividualidadesClient() {
+  const [stats, setStats] = useState<any[]>([])
+  const [resultados, setResultados] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([getEstadisticasJugadores(), getResultadosConJugadores()]).then(([st, res]) => {
+      setStats(st); setResultados(res); setLoading(false)
+    })
+  }, [])
+
+  if (loading) return <p className="text-center py-20 text-white/70">Cargando...</p>
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null)
 
   const jugadores = useMemo(() =>

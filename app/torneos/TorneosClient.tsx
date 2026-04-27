@@ -1,8 +1,7 @@
 'use client'
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { playerColor } from '@/lib/colors'
-
-interface Props { resultados: any[] }
+import { getResultadosConJugadores } from '@/lib/queries'
 
 const YEARS = [2026, 2025, 2024]
 const CURRENT_YEAR = 2026
@@ -93,7 +92,14 @@ function computeTorneo(resultados: any[], ano: number) {
   }
 }
 
-export default function TorneosClient({ resultados }: Props) {
+export default function TorneosClient() {
+  const [resultados, setResultados] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    getResultadosConJugadores().then(res => { setResultados(res); setLoading(false) })
+  }, [])
+
   const torneos = useMemo(
     () => YEARS.map(ano => ({ ano, ...computeTorneo(resultados, ano) })),
     [resultados]

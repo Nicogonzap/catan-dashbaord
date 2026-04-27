@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend,
@@ -9,14 +9,10 @@ import {
   calcularRachaActual, calcularRachaMaxima,
   calcularMaxVictoriasEnEvento, calcularCebollitas,
 } from '@/lib/metrics'
+import { getResultadosConJugadores, getAnosDisponibles } from '@/lib/queries'
 import SectionTitle from '@/components/metrics/SectionTitle'
 import PlayerBar from '@/components/charts/PlayerBar'
 import DoubleBar from '@/components/charts/DoubleBar'
-
-interface Props {
-  resultados: any[]
-  years: number[]
-}
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -27,7 +23,18 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
   )
 }
 
-export default function StatsClient({ resultados, years }: Props) {
+export default function StatsClient() {
+  const [resultados, setResultados] = useState<any[]>([])
+  const [years, setYears] = useState<number[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([getResultadosConJugadores(), getAnosDisponibles()]).then(([res, yrs]) => {
+      setResultados(res); setYears(yrs); setLoading(false)
+    })
+  }, [])
+
+  if (loading) return <p className="text-center py-20 text-white/70">Cargando stats...</p>
   const [selectedYears, setSelectedYears] = useState<number[]>([])
 
   function toggleYear(y: number) {
