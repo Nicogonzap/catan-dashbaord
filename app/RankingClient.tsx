@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
+import Link from 'next/link'
 import { getResultadosConJugadores, getPartidas } from '@/lib/queries'
 import { victoriasAcumuladas } from '@/lib/metrics'
 import { MIEMBROS_OFICIALES } from '@/lib/colors'
@@ -90,7 +91,25 @@ export default function RankingClient() {
 
   return (
     <div>
-      <h1 className="page-title text-3xl font-bold mb-6">Ranking {YEAR} 🏆</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="page-title text-3xl font-bold">Ranking {YEAR} 🏆</h1>
+        <div className="flex gap-2">
+          <Link
+            href={`/eventos/${YEAR}`}
+            className="px-4 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-80"
+            style={{ background: '#2471A3' }}
+          >
+            Ver eventos
+          </Link>
+          <Link
+            href="/historico"
+            className="px-4 py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-80"
+            style={{ background: '#EBF5FB', color: '#1A2F45' }}
+          >
+            Ver histórico
+          </Link>
+        </div>
+      </div>
 
       <SectionTitle>Ranking General</SectionTitle>
       <div className="card p-0 overflow-x-auto mb-2">

@@ -294,3 +294,55 @@ export async function revertirEdicion(snapshotAnterior: any[], partidaId: number
     .from('resultados_historial')
     .insert({ partida_id: partidaId, snapshot_anterior: snapshotActual, snapshot_nuevo: snapshotAnterior })
 }
+
+// ── Perfil de usuario ────────────────────────────────────────────────────────
+
+export async function getPerfilUsuario() {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return null
+  const { data } = await supabase
+    .from('perfiles')
+    .select('*, jugadores(*)')
+    .eq('id', session.user.id)
+    .single()
+  return data as { id: string; rol: string; jugador_id: string | null; jugadores: { id: string; nombre: string } | null } | null
+}
+
+// ── Reglas custom ────────────────────────────────────────────────────────────
+
+export async function getReglasCustom() {
+  const { data, error } = await supabase
+    .from('reglas_custom')
+    .select('*, votos_reglas(*)')
+    .order('id', { ascending: true })
+  if (error) { console.error('reglas_custom:', error.message); return [] }
+  return data ?? []
+}
+
+export async function createReglaCustom(data: {
+  titulo: string; descripcion: string; ejemplos?: string; excepciones?: string
+}) {
+  const { error } = await supabase.from('reglas_custom').insert(data)
+  if (error) throw error
+}
+
+export async function updateReglaCustom(id: number, data: {
+  titulo: string; descripcion: string; ejemplos?: string; excepciones?: string
+}) {
+  const { error } = await supabase.from('reglas_custom').update(data).eq('id', id)
+  if (error) throw error
+}
+
+export async function deleteReglaCustom(id: number) {
+  const { error } = await supabase.from('reglas_custom').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function upsertVotoRegla(reglaId: number, voto: 'conforme' | 'disconforme') {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('No session')
+  const { error } = await supabase
+    .from('votos_reglas')
+    .upsert({ regla_id: reglaId, user_id: session.user.id, voto }, { onConflict: 'regla_id,user_id' })
+  if (error) throw error
+}

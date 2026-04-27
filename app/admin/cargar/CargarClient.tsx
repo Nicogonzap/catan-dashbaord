@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import {
@@ -539,6 +540,13 @@ export default function CargarClient({ jugadores, ubicaciones, conteoJugadores }
       <div className="flex items-center justify-between mb-6">
         <h1 className="page-title text-3xl font-bold">Cargar Partida</h1>
         <div className="flex items-center gap-3">
+          <Link
+            href="/admin/historial"
+            className="px-4 py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-80"
+            style={{ background: '#EBF5FB', color: '#1A2F45' }}
+          >
+            Ver historial de eventos
+          </Link>
           <button
             type="button"
             onClick={() => { setEventoActivo(null); setShowNuevaPartida(false); setShowNuevoEvento(true) }}
@@ -546,10 +554,6 @@ export default function CargarClient({ jugadores, ubicaciones, conteoJugadores }
             style={{ background: '#27AE60' }}
           >
             + Nuevo evento
-          </button>
-          <button onClick={() => supabase.auth.signOut().then(() => router.push('/admin/login'))}
-            className="text-sm text-white/70 hover:text-white underline">
-            Cerrar sesión
           </button>
         </div>
       </div>

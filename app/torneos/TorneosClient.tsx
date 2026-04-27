@@ -1,5 +1,6 @@
 'use client'
 import { useMemo, useState, useEffect } from 'react'
+import Link from 'next/link'
 import { playerColor } from '@/lib/colors'
 import { getResultadosConJugadores } from '@/lib/queries'
 
@@ -126,6 +127,13 @@ export default function TorneosClient() {
                 >
                   {enCurso ? '⏳ En Curso' : '✅ Finalizado'}
                 </span>
+                <Link
+                  href={`/eventos/${t.ano}`}
+                  className="ml-auto px-3 py-1 rounded-lg text-xs font-semibold text-white transition-opacity hover:opacity-80"
+                  style={{ background: '#2471A3' }}
+                >
+                  Ver eventos
+                </Link>
               </div>
 
               {/* ── Podio ── */}

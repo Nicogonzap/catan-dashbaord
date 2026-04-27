@@ -4,7 +4,7 @@ export const PLAYER_COLORS: Record<string, string> = {
   Hugo:   '#2471A3',
   Moch:   '#6E4E37',
   Ivo:    '#D4AC0D',
-  Max:    '#D5D8DC',
+  Max:    '#566573',
   Sofi:   '#8E44AD',
   Gasta:  '#E67E22',
   Rodri:  '#7F8C8D',
