@@ -212,6 +212,32 @@ export async function actualizarNombreJugador(id: string, nombre: string) {
   if (error) throw error
 }
 
+export async function toggleVisibilidadJugador(id: string, visible: boolean) {
+  const { error } = await supabase.from('jugadores').update({ visible }).eq('id', id)
+  if (error) throw error
+}
+
+export async function unificarJugadores(sourceId: string, targetId: string) {
+  // Check for conflicts: partidas where both played (would create duplicate)
+  const [{ data: srcRes }, { data: tgtRes }] = await Promise.all([
+    supabase.from('resultados').select('partida_id').eq('jugador_id', sourceId),
+    supabase.from('resultados').select('partida_id').eq('jugador_id', targetId),
+  ])
+  const tgtPids = new Set((tgtRes ?? []).map(r => r.partida_id))
+  const conflicts = (srcRes ?? []).filter(r => tgtPids.has(r.partida_id))
+  if (conflicts.length > 0) {
+    throw new Error(`No se puede unificar: ambos jugadores jugaron en ${conflicts.length} partida(s) en común`)
+  }
+  // Move resultados from source to target
+  const { error: e1 } = await supabase.from('resultados').update({ jugador_id: targetId }).eq('jugador_id', sourceId)
+  if (e1) throw e1
+  // Update perfiles
+  await supabase.from('perfiles').update({ jugador_id: targetId }).eq('jugador_id', sourceId)
+  // Delete source jugador
+  const { error: e3 } = await supabase.from('jugadores').delete().eq('id', sourceId)
+  if (e3) throw e3
+}
+
 // ── Historial / ediciones ────────────────────────────────────────────────────
 
 export async function getPartidasLista() {

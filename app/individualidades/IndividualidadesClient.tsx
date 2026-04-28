@@ -50,7 +50,10 @@ export default function IndividualidadesClient() {
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null)
 
   const jugadores = useMemo(() =>
-    [...new Set(resultados.map((r: any) => r.jugadores?.nombre).filter(Boolean))].sort() as string[],
+    [...new Set(
+      resultados.filter((r: any) => r.jugadores?.visible !== false)
+        .map((r: any) => r.jugadores?.nombre).filter(Boolean)
+    )].sort() as string[],
     [resultados]
   )
 

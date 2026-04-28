@@ -73,7 +73,10 @@ export default function EstadisticasClient() {
 
   // All players, ordered: logged-in first, then by current year victories DESC
   const jugadores = useMemo(() => {
-    const all = [...new Set(resultados.map((r: any) => r.jugadores?.nombre).filter(Boolean))] as string[]
+    const all = [...new Set(
+      resultados.filter((r: any) => r.jugadores?.visible !== false)
+        .map((r: any) => r.jugadores?.nombre).filter(Boolean)
+    )] as string[]
     return all.sort((a, b) => {
       if (a === miJugadorNombre) return -1
       if (b === miJugadorNombre) return 1

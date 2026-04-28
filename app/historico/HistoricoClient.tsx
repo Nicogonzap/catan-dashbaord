@@ -15,7 +15,7 @@ function computeStats(resultados: any[]) {
     if (!j) continue
     if (!map[j.id]) {
       map[j.id] = {
-        id: j.id, nombre: j.nombre,
+        id: j.id, nombre: j.nombre, visible: j.visible,
         partidas_jugadas: 0, victorias: 0, _sum_pts: 0,
         total_ejercitos: 0, total_caminos: 0, total_pv: 0,
         victorias_flawless: 0, diez_tablero: 0,
@@ -33,7 +33,7 @@ function computeStats(resultados: any[]) {
     if (r.camino_mas_largo) s.total_caminos++
     s.total_pv += r.puntos_pv
   }
-  return Object.values(map).map(s => ({
+  return Object.values(map).filter(s => s.visible !== false).map(s => ({
     ...s,
     pct_victorias: s.partidas_jugadas > 0 ? Math.round(s.victorias / s.partidas_jugadas * 1000) / 10 : 0,
     promedio_puntos: s.partidas_jugadas > 0 ? Math.round(s._sum_pts / s.partidas_jugadas * 100) / 100 : 0,

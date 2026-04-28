@@ -49,7 +49,10 @@ export default function StatsClient() {
   }, [resultados, selectedYears])
 
   const jugadores = useMemo(() =>
-    [...new Set(filtered.map((r: any) => r.jugadores?.nombre).filter(Boolean))],
+    [...new Set(
+      filtered.filter((r: any) => r.jugadores?.visible !== false)
+        .map((r: any) => r.jugadores?.nombre).filter(Boolean)
+    )],
     [filtered]
   )
 
